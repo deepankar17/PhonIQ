@@ -1,0 +1,17 @@
+---
+description: Append android/CHANGELOG after substantial PhonIQ changes
+globs: "**/*"
+alwaysApply: true
+---
+
+# Changelog after big changes
+
+After a **substantial** change in this repo (not trivial one-liners), append one row to the append-only table in **`android/CHANGELOG_COMPOSE_FIX.md`**.
+
+**Big change** includes: new or reworked UX/features, multi-file refactors, Gradle/AGP/Kotlin/Compose/wrapper or `libs.versions.toml` / `settings` edits, build/sync fixes others need to see.
+
+**Skip** for: typo-only, format-only, or negligible edits unless part of a larger slice.
+
+Use the table format already in that file: **UTC date**, **tool/author**, **one-line summary** + key paths.
+
+If product behavior or scope changed, also update **`docs/PROJECT.md`** (and related docs) per project convention.
