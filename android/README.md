@@ -13,8 +13,15 @@ Kotlin + **Jetpack Compose** shell aligned with `design/phoniq-mockup-v1.html` a
 ## Open
 
 1. **File → Open** and select this folder: `phoniq/android/`
-2. Let Gradle sync finish (Android Studio will fetch the Gradle wrapper if needed).
+2. Let **Gradle sync** finish (first sync downloads dependencies — often **5–15 min** on a slow link; see below if it never finishes).
 3. Run the **app** configuration on a device or emulator.
+
+### If sync hangs past ~20 minutes
+
+- This repo includes a full **Gradle wrapper** (`gradlew.bat`, `gradlew`, `gradle/wrapper/gradle-wrapper.jar`). If Android Studio was opened **before** those files existed, click **File → Sync Project with Gradle Files** (or close the project and reopen `android/`).
+- **File → Settings → Build, Execution, Deployment → Gradle:** use **Gradle JDK 17** (or embedded JDK 17+).
+- Add **`%USERPROFILE%\.gradle`** to Windows Defender **exclusions** (first-time dependency extract is I/O heavy and AV can stall it).
+- Toggle **offline mode** off (Gradle tool window elephant icon) unless you know caches are warm.
 
 ## Current scope (v0.1)
 
