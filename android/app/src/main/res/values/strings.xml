@@ -7,5 +7,4 @@
     <string name="placeholder_phone">Recent calls and dialer will live here.</string>
     <string name="placeholder_messages">SMS / RCS threads will live here.</string>
     <string name="placeholder_money">Parsed transactions and budgets will live here.</string>
-    <string name="settings">Settings</string>
 </resources>

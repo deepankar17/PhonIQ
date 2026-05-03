@@ -6,9 +6,9 @@ Kotlin + **Jetpack Compose** shell aligned with `design/phoniq-mockup-v1.html` a
 
 ## Requirements
 
-- Android Studio **Ladybug** (or newer) with **AGP 8.7+** and **JDK 17**
+- Android Studio **Ladybug** (or newer) with **AGP 9.2+**, **Gradle 9.4.1** (via wrapper), and **JDK 17**
 - **Device or emulator: Android 15 (API 35) or newer** — `minSdk` is **35** so PhonIQ does not ship to older OS tiers (15 / 16 market focus). The app still runs on **Android 16** devices.
-- **compileSdk / targetSdk:** **35** on this toolchain (AGP 8.x). When you adopt **AGP 9+** / Gradle 9.x, bump to **36** to match Android 16 platform behaviors for Play / policy.
+- **compileSdk / targetSdk:** **36** (AGP 9.2 / Build Tools 36.x). Install **Android SDK Platform 36** and **SDK Build-Tools 36** via SDK Manager if Gradle reports a missing SDK.
 
 ## Open
 

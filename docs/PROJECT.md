@@ -5,7 +5,7 @@
 - **App Name:** **PhonIQ** — *Phone* + **IQ** (capital **IQ** is intentional). Technical ids stay lowercased (e.g. `com.phoniq.app`, folder `phoniq/`).
 - **Source repository:** [github.com/deepankar17/PhonIQ](https://github.com/deepankar17/PhonIQ) — clone: `gh repo clone deepankar17/PhonIQ` or `git clone https://github.com/deepankar17/PhonIQ.git`
 - **Tagline:** Know every call. Track every rupee.
-- **Platform:** Android — **minimum OS Android 15 (API 35)**; primary validation on **15 and 16** (no install on API 34 and below). `compileSdk` / `targetSdk` **35** in repo until **AGP 9+** migration enables **API 36** targeting.
+- **Platform:** Android — **minimum OS Android 15 (API 35)**; primary validation on **15 and 16** (no install on API 34 and below). `compileSdk` / `targetSdk` **36** with **AGP 9.2+** / Gradle 9.4.x (Play / platform alignment); `minSdk` remains **35**.
 - **Package Name:** com.phoniq.app
 - **Trademark Status:** Clear (verified 2026-04-30) — file in India Class 38 + 36
 - **Domain:** phoniq.app (register immediately)

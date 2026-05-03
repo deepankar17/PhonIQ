@@ -1,17 +1,16 @@
 [versions]
-agp = "8.7.3"
-kotlin = "2.0.21"
-coreKtx = "1.15.0"
-activityCompose = "1.9.3"
-lifecycleRuntime = "2.8.7"
-navigationCompose = "2.8.5"
-composeBom = "2024.12.01"
+agp = "9.2.0"
+kotlin = "2.1.10"
+coreKtx = "1.18.0"
+activityCompose = "1.13.0"
+lifecycleRuntime = "2.10.0"
+navigationCompose = "2.9.8"
+composeBom = "2026.04.01"
 
-# Install base: Android 15+ (API 35) — aligns with current version share focus (15 / 16).
-# compile/target 35 on AGP 8.x; app runs on Android 16. Raise to compile/target 36 with AGP 9+ when ready.
-compileSdk = "35"
+# minSdk 35 (Android 15+); compile/target 36 for AGP 9.2 (supported API band).
+compileSdk = "36"
 minSdk = "35"
-targetSdk = "35"
+targetSdk = "36"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
