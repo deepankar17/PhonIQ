@@ -1,5 +1,5 @@
 # PhonIQ — Project Master Document
-> Last updated: 2026-05-02 (GitHub remote documented)
+> Last updated: 2026-05-04 (Android shell parity with HTML mockup)
 
 ## Identity
 - **App Name:** **PhonIQ** — *Phone* + **IQ** (capital **IQ** is intentional). Technical ids stay lowercased (e.g. `com.phoniq.app`, folder `phoniq/`).
@@ -63,7 +63,7 @@
 - **Settings:** root lists **Personalization** + **Data & device** (backup/restore wire, widgets wire); **Personalization** sub-view holds live theme/accent/dialpad/font/avatar/bubble controls and related toggles
 - **Contact detail:** row for **Per-contact call policies** (opens policy wire overlay)
 - **Prototype wires:** full-screen overlay (`proto-generic-overlay`) opened from the correct tab’s **⋮ menu**, **Money** “Money tools” chip strip, Settings **Data & device**, or contact-detail policy row — not a separate hub screen
-- **Android app (initial):** `android/` — Kotlin, Jetpack Compose, **no `INTERNET` permission**, package **`com.phoniq.app`**, **minSdk 35** (Android 15+), bottom nav **Phone · Messages · Money** with placeholder screens; open the folder in Android Studio and run **app** (see `android/README.md`)
+- **Android app (shell + samples):** `android/` — Kotlin, Jetpack Compose, **no `INTERNET` permission**, package **`com.phoniq.app`**, **minSdk 35**; bottom nav **Phone · Messages · Money**; **Phone** Recent/Contacts/Favorites, filters, **quick-call** strip, FAB; **Messages** filter chips + thread list with avatars; **Money** summary + budget bar, **Money tools** chip strip, donut + budget tracker cards (sample `SampleData`); **⋮** opens **proto wire** full-screen copy or **Settings** (Personalization + Data & device placeholders). Run **app** from `phoniq/android/` (see `android/README.md`).
 
 ---
 
