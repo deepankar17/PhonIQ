@@ -8,7 +8,31 @@ Thumbs.db
 .vscode/
 *.log
 
-# Local env (never commit)
+# Gradle / Android build
+.gradle/
+build/
+.externalNativeBuild/
+.cxx/
+captures/
+*.aab
+*.apk
+output-metadata.json
+
+# Local configuration (SDK path, etc.)
 local.properties
+
+# Keystore
+*.jks
 *.keystore
 !debug.keystore
+
+# Google Services (add if the project uses Firebase / Play Services config)
+google-services.json
+
+# Android profiling
+*.hprof
+
+# IntelliJ (extra)
+misc.xml
+deploymentTargetDropDown.xml
+render.experimental.xml
