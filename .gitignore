@@ -1,0 +1,14 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+*.iml
+.vscode/
+*.log
+
+# Local env (never commit)
+local.properties
+*.keystore
+!debug.keystore

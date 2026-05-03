@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PhonIQ</string>
+    <string name="nav_phone">Phone</string>
+    <string name="nav_messages">Messages</string>
+    <string name="nav_money">Money</string>
+    <string name="placeholder_phone">Recent calls and dialer will live here.</string>
+    <string name="placeholder_messages">SMS / RCS threads will live here.</string>
+    <string name="placeholder_money">Parsed transactions and budgets will live here.</string>
+    <string name="settings">Settings</string>
+</resources>
