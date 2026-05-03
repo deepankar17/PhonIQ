@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -71,7 +71,7 @@ private fun PhonIQShell() {
                                 MainTab.Phone -> Icon(Icons.Default.Call, contentDescription = null)
                                 MainTab.Messages ->
                                     Icon(
-                                        Icons.Default.Message,
+                                        Icons.AutoMirrored.Filled.Message,
                                         contentDescription = null,
                                     )
                                 MainTab.Money ->
