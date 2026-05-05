@@ -1,16 +1,26 @@
 package com.phoniq.app.ui.money
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.phoniq.app.data.db.entity.BudgetEntity
 import com.phoniq.app.data.db.entity.TransactionEntity
+import com.phoniq.app.data.model.BudgetStatus
 import com.phoniq.app.data.model.CategorySpend
 import com.phoniq.app.data.model.MoneySummary
 import com.phoniq.app.data.model.RecentTransaction
 import com.phoniq.app.data.repository.TransactionRepository
+import com.phoniq.app.ui.money.AccountBalance
+import com.phoniq.app.ui.money.MonthlySpend
+import java.time.Instant
+import java.time.ZoneId
+import com.phoniq.app.notification.OverBudgetNotifier
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,6 +33,7 @@ import kotlin.math.roundToInt
 
 class MoneyViewModel(
     private val transactionRepository: TransactionRepository,
+    private val appContext: Context? = null,
 ) : ViewModel() {
 
     private val monthRange = transactionRepository.currentMonthEpochRange()
@@ -82,20 +93,96 @@ class MoneyViewModel(
             txns.take(20).map { it.toRecentTransaction() }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * Per-account net balance (credits - debits) derived from all parsed SMS transactions.
+     * Accounts are populated by SmsRepository when it parses bank messages.
+     */
+    val accountBalances: StateFlow<List<AccountBalance>> =
+        transactionRepository.allAccounts.flatMapLatest { accounts ->
+            if (accounts.isEmpty()) {
+                kotlinx.coroutines.flow.flowOf(emptyList())
+            } else {
+                combine(accounts.map { acct ->
+                    transactionRepository.netBalanceForAccount(acct.id).map { net ->
+                        AccountBalance(
+                            accountId = acct.id,
+                            bankName = acct.bankName,
+                            last4 = acct.last4,
+                            accountType = acct.accountType,
+                            netBalance = net,
+                        )
+                    }
+                }) { it.toList() }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Monthly spending for the past 6 months (for Vico bar chart). */
+    val monthlySpends: StateFlow<List<MonthlySpend>> =
+        transactionRepository.allTransactions.map { txns ->
+            val zone = ZoneId.systemDefault()
+            val now = java.time.LocalDate.now()
+            (5 downTo 0).map { monthsBack ->
+                val target = now.minusMonths(monthsBack.toLong())
+                val spent = txns.filter { txn ->
+                    if (txn.txnType != "DEBIT") return@filter false
+                    val txnDate = Instant.ofEpochMilli(txn.date).atZone(zone).toLocalDate()
+                    txnDate.year == target.year && txnDate.monthValue == target.monthValue
+                }.sumOf { it.amount }
+                MonthlySpend(month = target.month, year = target.year, totalSpent = spent)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Live budget status per category: spent amount vs user-set limit. */
+    val budgetStatuses: StateFlow<List<BudgetStatus>> =
+        combine(currentMonthTransactions, currentMonthBudgets) { txns, budgets ->
+            CATEGORY_META.map { (key, meta) ->
+                val spent = txns.filter { it.txnType == "DEBIT" && it.category == key }.sumOf { it.amount }
+                val limit = budgets.find { it.category == key }?.monthlyLimit ?: 0.0
+                val fraction = if (limit > 0) (spent / limit).toFloat().coerceIn(0f, 1f) else 0f
+                BudgetStatus(
+                    category = key,
+                    displayName = meta.displayName,
+                    emoji = meta.emoji,
+                    spent = spent,
+                    limit = limit,
+                    fraction = fraction,
+                    isOverBudget = limit > 0 && spent > limit,
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     // ---------------------------------------------------------------------------
 
     fun addManualTransaction(txn: TransactionEntity) {
         viewModelScope.launch { transactionRepository.addTransaction(txn) }
     }
 
-    fun setBudget(category: String, limitRupees: Double) {
-        viewModelScope.launch { transactionRepository.setBudget(category, limitRupees) }
+    fun exportTransactionsCsv(onResult: (String) -> Unit) {
+        if (appContext == null) return
+        viewModelScope.launch {
+            val txns = transactionRepository.allTransactions.first()
+            val result = com.phoniq.app.export.CsvExporter.exportTransactions(appContext, txns)
+            onResult(result.getOrElse { "Export failed: ${it.message}" })
+        }
     }
 
-    class Factory(private val repo: TransactionRepository) : ViewModelProvider.Factory {
+    fun setBudget(category: String, limitRupees: Double) {
+        viewModelScope.launch {
+            transactionRepository.setBudget(category, limitRupees)
+            // Check and fire over-budget notification
+            if (appContext != null && limitRupees > 0) {
+                val spent = budgetStatuses.value.find { it.category == category }?.spent ?: 0.0
+                if (spent > limitRupees) {
+                    OverBudgetNotifier.notify(appContext, category, spent, limitRupees)
+                }
+            }
+        }
+    }
+
+    class Factory(private val repo: TransactionRepository, private val ctx: Context? = null) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            MoneyViewModel(repo) as T
+            MoneyViewModel(repo, ctx) as T
     }
 }
 

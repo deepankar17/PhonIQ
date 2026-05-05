@@ -29,6 +29,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,9 +52,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phoniq.app.R
 import com.phoniq.app.data.SampleData
+import com.phoniq.app.data.model.BudgetStatus
 import com.phoniq.app.data.model.CategorySpend
 import com.phoniq.app.data.model.MoneySummary
 import com.phoniq.app.data.model.RecentTransaction
+import com.phoniq.app.ui.money.AccountBalance
+import com.phoniq.app.ui.money.MonthlySpend
 import com.phoniq.app.ui.components.MockupSectionLabel
 import com.phoniq.app.ui.shell.ShellMenuAction
 import com.phoniq.app.ui.theme.PhoniqAccent
@@ -79,6 +86,7 @@ private val ColorCredit = PhoniqSecondary
 
 private val TxnTitleColor = Color(0xFFDDDDDD)
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun MoneyScreen(
     onUserMessage: (String) -> Unit,
@@ -86,6 +94,10 @@ fun MoneyScreen(
     realSummary: MoneySummary? = null,
     realCategories: List<CategorySpend>? = null,
     realTransactions: List<RecentTransaction>? = null,
+    budgetStatuses: List<BudgetStatus> = emptyList(),
+    onSetBudget: (category: String, limit: Double) -> Unit = { _, _ -> },
+    accountBalances: List<AccountBalance> = emptyList(),
+    monthlySpends: List<MonthlySpend> = emptyList(),
 ) {
     val context = LocalContext.current
     val summary = realSummary ?: SampleData.moneySummary
@@ -93,11 +105,24 @@ fun MoneyScreen(
     val transactions = realTransactions?.takeIf { it.isNotEmpty() } ?: SampleData.recentTransactions
     val budgetCategories = categories.filterNot { it.name == "Others" }
 
+    var showBudgetSheet by remember { mutableStateOf(false) }
+
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         item { SummaryHeroCard(summary = summary, onClick = { onUserMessage(context.getString(R.string.toast_money_summary_tap)) }) }
+        if (accountBalances.isNotEmpty()) {
+            item { MockupSectionLabel(text = "Accounts", topPadding = 4.dp) }
+            item { AccountBalanceSection(accounts = accountBalances) }
+        }
         item { MockupSectionLabel(text = stringResource(R.string.money_tools_label), topPadding = 4.dp) }
-        item { MoneyToolsStrip(onTool = onMoneyTool) }
+        item { MoneyToolsStrip(onTool = { action ->
+            if (action == ShellMenuAction.MoneyBudget) showBudgetSheet = true
+            else onMoneyTool(action)
+        }) }
         item { SpendingDonutRow(categories = categories, centerAmount = summary.spentLabel) }
+        if (monthlySpends.any { it.totalSpent > 0 }) {
+            item { MockupSectionLabel(text = "Spending trends", topPadding = 8.dp) }
+            item { SpendingAnalyticsSection(monthlySpends = monthlySpends) }
+        }
         item { MockupSectionLabel(text = stringResource(R.string.money_categories_title)) }
         item {
             BudgetTrackerGrid(
@@ -121,6 +146,14 @@ fun MoneyScreen(
             }
         }
         item { Spacer(Modifier.height(80.dp)) }
+    }
+
+    if (showBudgetSheet) {
+        BudgetSetupSheet(
+            budgetStatuses = budgetStatuses,
+            onSave = onSetBudget,
+            onDismiss = { showBudgetSheet = false },
+        )
     }
 }
 

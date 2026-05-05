@@ -33,6 +33,7 @@ private data class MoneyToolChip(
 
 private val moneyToolChips =
     listOf(
+        MoneyToolChip(ShellMenuAction.MoneyBudget, R.string.money_tool_budget_title, R.string.money_tool_budget_sub),
         MoneyToolChip(ShellMenuAction.MoneyBillDue, R.string.money_tool_bill_title, R.string.money_tool_bill_sub),
         MoneyToolChip(ShellMenuAction.MoneyRecurring, R.string.money_tool_recurring_title, R.string.money_tool_recurring_sub),
         MoneyToolChip(ShellMenuAction.MoneySalaryYearly, R.string.money_tool_salary_title, R.string.money_tool_salary_sub),

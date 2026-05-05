@@ -3,6 +3,7 @@ package com.phoniq.app.data
 import com.phoniq.app.data.model.CallChannel
 import com.phoniq.app.data.model.CallDirection
 import com.phoniq.app.data.model.CategorySpend
+import com.phoniq.app.data.model.ContactHistoryEntry
 import com.phoniq.app.data.model.ContactRow
 import com.phoniq.app.data.model.MessageThread
 import com.phoniq.app.data.model.MessageThreadCategory
@@ -204,11 +205,55 @@ object SampleData {
 
     val contacts: List<ContactRow> =
         listOf(
-            ContactRow("c1", "Priya Sharma", "Mobile · +91 98765 43210"),
-            ContactRow("c2", "Rahul Verma", "Mobile · +91 99887 76655", riskNote = "Likely Spam"),
-            ContactRow("c3", "HDFC Bank", "Short code · HDFCBK"),
-            ContactRow("c4", "Swiggy", "Support · 080-4718-xxxx"),
+            ContactRow(
+                id = "c1",
+                name = "Priya Sharma",
+                subtitle = "Mobile · +91 98765 43210",
+                detailNumber = "+91 98765 43210",
+                avatarStartArgb = 0xFF8C5FE8L,
+                avatarEndArgb = 0xFF6C63FFL,
+            ),
+            ContactRow(
+                id = "c2",
+                name = "Rahul Verma",
+                subtitle = "Mobile · +91 99887 76655",
+                riskNote = "Likely Spam",
+                detailNumber = "+91 99887 76655",
+                avatarStartArgb = 0xFFE87D20L,
+                avatarEndArgb = 0xFFC45A00L,
+            ),
+            ContactRow(
+                id = "c3",
+                name = "HDFC Bank",
+                subtitle = "Short code · HDFCBK",
+                detailNumber = "1800 267 6161",
+                avatarStartArgb = 0xFF1A6FD4L,
+                avatarEndArgb = 0xFF0D4FA8L,
+            ),
+            ContactRow(
+                id = "c4",
+                name = "Swiggy",
+                subtitle = "Support · 080-4718-xxxx",
+                detailNumber = "080-4718-xxxx",
+                avatarStartArgb = 0xFFFF6B6BL,
+                avatarEndArgb = 0xFFFF9800L,
+            ),
         )
+
+    fun contactHistory(contactId: String): List<ContactHistoryEntry> =
+        when (contactId) {
+            "c1" ->
+                listOf(
+                    ContactHistoryEntry("Incoming · 4 min 32 sec", "Today, 2 mins ago", true),
+                    ContactHistoryEntry("Outgoing · 12 min 08 sec", "Yesterday, 3:45 PM", false),
+                    ContactHistoryEntry("Incoming · 2 min 15 sec", "28 Apr, 11:20 AM", true),
+                )
+            else ->
+                listOf(
+                    ContactHistoryEntry("Outgoing · 3 min 00 sec", "Mon, 10:12 AM", false),
+                    ContactHistoryEntry("Incoming · 1 min 05 sec", "Sun, 4:20 PM", true),
+                )
+        }
 
     val favoriteContactIds: Set<String> = setOf("c1", "c4")
 

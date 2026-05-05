@@ -85,6 +85,20 @@
     <string name="toast_sms_contact">Compose SMS to %1$s (prototype).</string>
     <string name="toast_favorite_open">%1$s — contact detail next.</string>
 
+    <string name="contact_detail_back">Back</string>
+    <string name="contact_qa_call">Call</string>
+    <string name="contact_qa_message">Message</string>
+    <string name="contact_qa_note">Add note</string>
+    <string name="contact_qa_schedule">Schedule</string>
+    <string name="contact_policy_title">Per-contact call policies</string>
+    <string name="contact_policy_sub">Ring, default SIM, ringtone · wire</string>
+    <string name="contact_history_section">Call history</string>
+    <string name="contact_block_cta">Block this number</string>
+    <string name="toast_contact_note">Note saved (prototype).</string>
+    <string name="toast_contact_schedule">Scheduled (prototype).</string>
+    <string name="toast_contact_policy">Per-contact policies — wire next.</string>
+    <string name="toast_contact_block">Number blocked (prototype).</string>
+
     <string name="msg_filter_all">All</string>
     <string name="msg_filter_unread">Unread</string>
     <string name="msg_filter_personal">Personal</string>
@@ -105,6 +119,8 @@
     <string name="money_txn_title">Recent Transactions</string>
     <string name="money_txn_see_all">See all →</string>
     <string name="money_tools_label">Money tools</string>
+    <string name="money_tool_budget_title">Set budgets</string>
+    <string name="money_tool_budget_sub">Monthly limits per category</string>
     <string name="money_tool_bill_title">Bill due</string>
     <string name="money_tool_bill_sub">CC, utilities, recharge</string>
     <string name="money_tool_recurring_title">Recurring</string>

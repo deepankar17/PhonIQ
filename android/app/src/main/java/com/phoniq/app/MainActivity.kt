@@ -191,7 +191,7 @@ private fun PhonIQShell(
     // ViewModels via factories
     val messagesVm: MessagesViewModel = viewModel(factory = MessagesViewModel.Factory(app.smsRepository))
     val phoneVm: PhoneViewModel = viewModel(factory = PhoneViewModel.Factory(app.callLogRepository, app.contactsRepository))
-    val moneyVm: MoneyViewModel = viewModel(factory = MoneyViewModel.Factory(app.transactionRepository))
+    val moneyVm: MoneyViewModel = viewModel(factory = MoneyViewModel.Factory(app.transactionRepository, LocalContext.current.applicationContext))
 
     // Trigger device sync once when permissions become available
     LaunchedEffect(permissionsGranted) {
@@ -207,6 +207,9 @@ private fun PhonIQShell(
     val moneyRealSummary by moneyVm.derivedSummary.collectAsState()
     val moneyRealCategories by moneyVm.derivedCategories.collectAsState()
     val moneyRealTransactions by moneyVm.derivedRecentTransactions.collectAsState()
+    val moneyBudgetStatuses by moneyVm.budgetStatuses.collectAsState()
+    val moneyAccountBalances by moneyVm.accountBalances.collectAsState()
+    val moneyMonthlySpends by moneyVm.monthlySpends.collectAsState()
 
     // Merge: prefer real data when the Room DB has entries, fall back to SampleData
     val messageThreads: List<MessageThread> = remember(dbSmsMessages) {
@@ -335,6 +338,10 @@ private fun PhonIQShell(
                         realSummary = moneyRealSummary,
                         realCategories = moneyRealCategories.takeIf { it.isNotEmpty() },
                         realTransactions = moneyRealTransactions.takeIf { it.isNotEmpty() },
+                        budgetStatuses = moneyBudgetStatuses,
+                        onSetBudget = { cat, limit -> moneyVm.setBudget(cat, limit) },
+                        accountBalances = moneyAccountBalances,
+                        monthlySpends = moneyMonthlySpends,
                     )
                 }
             }

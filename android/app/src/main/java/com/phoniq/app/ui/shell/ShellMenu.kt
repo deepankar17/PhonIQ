@@ -27,6 +27,7 @@ enum class ShellMenuAction {
     MessagesInboxCleaner,
     MessagesBillHygiene,
     MessagesOtpCenter,
+    MoneyBudget,
     MoneyBillDue,
     MoneyRecurring,
     MoneySalaryYearly,
@@ -55,6 +56,7 @@ fun ShellMenuAction.wireStrings(): Pair<Int, Int>? =
             R.string.wire_messages_bill_title to R.string.wire_messages_bill_body
         ShellMenuAction.MessagesOtpCenter ->
             R.string.wire_messages_otp_title to R.string.wire_messages_otp_body
+        ShellMenuAction.MoneyBudget -> null
         ShellMenuAction.MoneyBillDue ->
             R.string.wire_money_bill_title to R.string.wire_money_bill_body
         ShellMenuAction.MoneyRecurring ->

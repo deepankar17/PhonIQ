@@ -99,9 +99,18 @@ fun PhoneScreen(
     var section by remember { mutableStateOf(PhoneSection.Recent) }
     var recentFilter by remember { mutableStateOf(RecentCallFilter.All) }
     var showDialpad by remember { mutableStateOf(false) }
+    var selectedContact by remember { mutableStateOf<ContactRow?>(null) }
 
     if (showDialpad) {
         DialpadSheet(onDismiss = { showDialpad = false })
+    }
+
+    selectedContact?.let { contact ->
+        ContactDetailOverlay(
+            contact = contact,
+            onDismiss = { selectedContact = null },
+            onUserMessage = onUserMessage,
+        )
     }
 
     val fabIcon =
@@ -128,9 +137,14 @@ fun PhoneScreen(
                         onUserMessage = onUserMessage,
                     )
                 PhoneSection.Contacts ->
-                    ContactsPanel(onUserMessage = onUserMessage)
+                    ContactsPanel(
+                        onUserMessage = onUserMessage,
+                        onContactOpen = { selectedContact = it },
+                    )
                 PhoneSection.Favorites ->
-                    FavoritesPanel(onUserMessage = onUserMessage)
+                    FavoritesPanel(
+                        onContactOpen = { selectedContact = it },
+                    )
             }
         }
         DialerBottomBar(
@@ -487,7 +501,10 @@ private fun directionLabel(direction: CallDirection): String =
     }
 
 @Composable
-private fun ContactsPanel(onUserMessage: (String) -> Unit) {
+private fun ContactsPanel(
+    onUserMessage: (String) -> Unit,
+    onContactOpen: (ContactRow) -> Unit,
+) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     val filtered = remember(query) {
@@ -532,7 +549,11 @@ private fun ContactsPanel(onUserMessage: (String) -> Unit) {
             }
         }
         items(filtered, key = { it.id }) { row ->
-            ContactRowItem(row = row, onUserMessage = onUserMessage)
+            ContactRowItem(
+                row = row,
+                onUserMessage = onUserMessage,
+                onOpen = { onContactOpen(row) },
+            )
         }
         item {
             BlockedSection(onManage = {
@@ -576,9 +597,11 @@ private fun BlockedSection(onManage: () -> Unit) {
 private fun ContactRowItem(
     row: ContactRow,
     onUserMessage: (String) -> Unit,
+    onOpen: () -> Unit,
 ) {
     val context = LocalContext.current
     ListItem(
+        modifier = Modifier.clickable { onOpen() },
         headlineContent = { Text(row.name) },
         supportingContent = {
             Column {
@@ -606,8 +629,7 @@ private fun ContactRowItem(
 }
 
 @Composable
-private fun FavoritesPanel(onUserMessage: (String) -> Unit) {
-    val context = LocalContext.current
+private fun FavoritesPanel(onContactOpen: (ContactRow) -> Unit) {
     val favorites =
         remember {
             SampleData.contacts.filter { it.id in SampleData.favoriteContactIds }
@@ -621,7 +643,7 @@ private fun FavoritesPanel(onUserMessage: (String) -> Unit) {
     ) {
         items(favorites, key = { it.id }) { row ->
             Card(
-                onClick = { onUserMessage(context.getString(R.string.toast_favorite_open, row.name)) },
+                onClick = { onContactOpen(row) },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
                 Box(

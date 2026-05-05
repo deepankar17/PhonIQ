@@ -56,4 +56,14 @@ data class ContactRow(
     val name: String,
     val subtitle: String,
     val riskNote: String? = null,
+    /** Shown under name (e.g. +91 …); falls back to [subtitle] if null. */
+    val detailNumber: String? = null,
+    val avatarStartArgb: Long = 0xFF8C5FE8L,
+    val avatarEndArgb: Long = 0xFF6C63FFL,
+)
+
+data class ContactHistoryEntry(
+    val directionMeta: String,
+    val timeMeta: String,
+    val incoming: Boolean,
 )

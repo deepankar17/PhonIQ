@@ -26,6 +26,18 @@ interface TransactionDao {
     @Query("SELECT SUM(amount) FROM transactions WHERE txn_type = 'DEBIT' AND date >= :fromEpoch AND date <= :toEpoch")
     fun totalSpentInPeriod(fromEpoch: Long, toEpoch: Long): Flow<Double?>
 
+    /** Returns all transactions for a specific account, newest first. */
+    @Query("SELECT * FROM transactions WHERE account_id = :accountId ORDER BY date DESC")
+    fun observeForAccount(accountId: Long): Flow<List<TransactionEntity>>
+
+    /** Net balance for an account: SUM(credits) - SUM(debits). */
+    @Query("""
+        SELECT COALESCE(SUM(CASE WHEN txn_type = 'CREDIT' THEN amount ELSE 0 END), 0)
+             - COALESCE(SUM(CASE WHEN txn_type = 'DEBIT'  THEN amount ELSE 0 END), 0)
+        FROM transactions WHERE account_id = :accountId
+    """)
+    fun netBalanceForAccount(accountId: Long): Flow<Double>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(txn: TransactionEntity): Long
 

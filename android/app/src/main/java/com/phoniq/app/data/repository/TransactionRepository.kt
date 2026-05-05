@@ -23,6 +23,9 @@ class TransactionRepository(
     fun totalSpentInPeriod(fromEpoch: Long, toEpoch: Long): Flow<Double?> =
         transactionDao.totalSpentInPeriod(fromEpoch, toEpoch)
 
+    fun netBalanceForAccount(accountId: Long): Flow<Double> =
+        transactionDao.netBalanceForAccount(accountId)
+
     fun budgetsForCurrentMonth(): Flow<List<BudgetEntity>> =
         budgetDao.observeForMonth(currentMonthYear())
 
