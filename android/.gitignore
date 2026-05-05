@@ -1,5 +1,6 @@
 /.gradle/
 /.gradle-agent/
+/.gradle-build-alt/
 /build/
 **/build/
 /.idea/
