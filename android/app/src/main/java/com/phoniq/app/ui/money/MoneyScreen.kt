@@ -83,11 +83,14 @@ private val TxnTitleColor = Color(0xFFDDDDDD)
 fun MoneyScreen(
     onUserMessage: (String) -> Unit,
     onMoneyTool: (ShellMenuAction) -> Unit,
+    realSummary: MoneySummary? = null,
+    realCategories: List<CategorySpend>? = null,
+    realTransactions: List<RecentTransaction>? = null,
 ) {
     val context = LocalContext.current
-    val summary = SampleData.moneySummary
-    val categories = SampleData.categorySpends
-    val transactions = SampleData.recentTransactions
+    val summary = realSummary ?: SampleData.moneySummary
+    val categories = realCategories?.takeIf { it.isNotEmpty() } ?: SampleData.categorySpends
+    val transactions = realTransactions?.takeIf { it.isNotEmpty() } ?: SampleData.recentTransactions
     val budgetCategories = categories.filterNot { it.name == "Others" }
 
     LazyColumn(modifier = Modifier.fillMaxWidth()) {

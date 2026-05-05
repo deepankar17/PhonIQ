@@ -1,6 +1,9 @@
 package com.phoniq.app
 
+import android.app.role.RoleManager
+import android.os.Build
 import android.os.Bundle
+import android.telecom.TelecomManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -10,6 +13,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
@@ -27,6 +32,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,6 +46,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,8 +72,11 @@ import com.phoniq.app.ui.permission.OPTIONAL_PERMISSIONS
 import com.phoniq.app.ui.permission.PermissionBanner
 import com.phoniq.app.ui.permission.PermissionScreen
 import com.phoniq.app.ui.permission.allCorePermissionsGranted
+import com.phoniq.app.ui.phone.InCallScreen
 import com.phoniq.app.ui.phone.PhoneScreen
 import com.phoniq.app.ui.phone.PhoneViewModel
+import com.phoniq.app.telecom.CallState
+import com.phoniq.app.telecom.CallStateRepository
 import com.phoniq.app.ui.settings.SettingsFullScreenOverlay
 import com.phoniq.app.ui.shell.GlobalSearchOverlay
 import com.phoniq.app.ui.shell.PhonIQTopBar
@@ -70,6 +85,8 @@ import com.phoniq.app.ui.shell.ShellMenuAction
 import com.phoniq.app.ui.shell.mainTabFromRoute
 import com.phoniq.app.ui.theme.PhonIQTheme
 import com.phoniq.app.ui.theme.PhoniqAccent
+import com.phoniq.app.ui.theme.PhoniqBorder
+import com.phoniq.app.ui.theme.PhoniqSurfaceLow
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -95,7 +112,7 @@ private fun PhonIQRoot() {
     var permissionsSkipped by rememberSaveable { mutableStateOf(false) }
 
     val allPerms = CORE_PERMISSIONS + OPTIONAL_PERMISSIONS
-    val launcher = rememberLauncherForActivityResult(
+    val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         val coreGranted = CORE_PERMISSIONS.all { results[it] == true }
@@ -105,11 +122,35 @@ private fun PhonIQRoot() {
         }
     }
 
+    // Default dialer / phone role request
+    val defaultDialerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { /* result handled silently — TelecomManager check on next compose */ }
+
+    fun requestDefaultDialer() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val rm = context.getSystemService(RoleManager::class.java)
+            if (rm != null && !rm.isRoleHeld(RoleManager.ROLE_DIALER)) {
+                val intent = rm.createRequestRoleIntent(RoleManager.ROLE_DIALER)
+                defaultDialerLauncher.launch(intent)
+            }
+        } else {
+            val intent = android.content.Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER)
+                .putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, context.packageName)
+            defaultDialerLauncher.launch(intent)
+        }
+    }
+
+    // After permissions granted, also prompt for default dialer role
+    LaunchedEffect(permissionsGranted) {
+        if (permissionsGranted) requestDefaultDialer()
+    }
+
     when {
         permissionsGranted || permissionsSkipped -> {
             PhonIQShell(
                 permissionsGranted = permissionsGranted,
-                onRequestPermissions = { launcher.launch(allPerms) },
+                onRequestPermissions = { permLauncher.launch(allPerms) },
             )
         }
         else -> {
@@ -161,6 +202,9 @@ private fun PhonIQShell(
     // Collect live data from ViewModels
     val dbSmsMessages by messagesVm.allMessages.collectAsState()
     val dbCalls by phoneVm.allCalls.collectAsState()
+    val moneyRealSummary by moneyVm.derivedSummary.collectAsState()
+    val moneyRealCategories by moneyVm.derivedCategories.collectAsState()
+    val moneyRealTransactions by moneyVm.derivedRecentTransactions.collectAsState()
 
     // Merge: prefer real data when the Room DB has entries, fall back to SampleData
     val messageThreads: List<MessageThread> = remember(dbSmsMessages) {
@@ -219,7 +263,17 @@ private fun PhonIQShell(
             },
             bottomBar = {
                 NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    modifier =
+                        Modifier.drawBehind {
+                            val stroke = 1.dp.toPx()
+                            drawLine(
+                                color = PhoniqBorder.copy(alpha = 0.55f),
+                                strokeWidth = stroke,
+                                start = Offset(0f, stroke * 0.5f),
+                                end = Offset(size.width, stroke * 0.5f),
+                            )
+                        },
+                    containerColor = PhoniqSurfaceLow.copy(alpha = 0.92f),
                     tonalElevation = NavigationBarDefaults.Elevation,
                 ) {
                     tabs.forEach { tab ->
@@ -276,8 +330,27 @@ private fun PhonIQShell(
                     MoneyScreen(
                         onUserMessage = { showMessage(it) },
                         onMoneyTool = { action -> wireAction = action },
+                        realSummary = moneyRealSummary,
+                        realCategories = moneyRealCategories.takeIf { it.isNotEmpty() },
+                        realTransactions = moneyRealTransactions.takeIf { it.isNotEmpty() },
                     )
                 }
+            }
+        }
+
+        // In-call overlay — slides up over everything when a call is active/ringing
+        val activeCall by CallStateRepository.callInfo.collectAsState()
+        AnimatedVisibility(
+            visible = activeCall != null && activeCall!!.state != CallState.DISCONNECTED,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+        ) {
+            activeCall?.let { info ->
+                InCallScreen(
+                    callerName = info.callerName,
+                    callerNumber = info.callerNumber,
+                    onHangUp = { CallStateRepository.hangUp() },
+                )
             }
         }
 

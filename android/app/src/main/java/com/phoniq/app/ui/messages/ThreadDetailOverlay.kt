@@ -1,6 +1,13 @@
 package com.phoniq.app.ui.messages
 
 import android.widget.Toast
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,11 +47,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,6 +73,24 @@ import com.phoniq.app.data.model.MessageTickVisual
 import com.phoniq.app.data.model.MessageThread
 import com.phoniq.app.ui.theme.PhoniqAccent
 import com.phoniq.app.ui.theme.PhoniqSecondary
+
+/** `.overlay-thread-wa` tokens from `design/phoniq-mockup-v1.html` */
+private val WaChatBg = Color(0xFF0B141A)
+private val WaHeaderBg = Color(0xFF1F2C34)
+private val WaHeaderBorder = Color(0xFF2A3942)
+private val WaBubbleSentBase = Color(0xFF1F2C34)
+private val WaBubbleReceived = Color(0xFF202C33)
+private val WaBubbleText = Color(0xFFE9EDEF)
+private val WaSubtleText = Color(0xFF8696A0)
+private val WaTimeOutgoing = Color(0x8CE9EDEF)
+private val WaTimeIncoming = Color(0x73E9EDEF)
+private val WaTickMuted = Color(0x8CE9EDEF)
+private val WaComposerField = Color(0xFF2A3942)
+private val WaSendGreen = Color(0xFF00A884)
+private val WaDatePillBg = Color(0xFF182329)
+private val WaAvatarSurface = Color(0xFF2A3942)
+
+private fun waSentBubbleFill(accent: Color): Color = lerp(WaBubbleSentBase, accent, 0.72f)
 
 /**
  * Full-screen thread overlay aligned with `phoniq-mockup-v1.html` `#overlay-sms-thread`
@@ -104,7 +137,7 @@ fun ThreadDetailOverlay(
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
+            color = WaChatBg,
         ) {
             Column(Modifier.fillMaxSize()) {
                 ThreadChatHeader(
@@ -120,16 +153,30 @@ fun ThreadDetailOverlay(
                 } else {
                     ThreadSmsPlainBar(text = plainSmsHint)
                 }
-                LazyColumn(
-                    state = listState,
+                Box(
                     modifier =
                         Modifier
                             .weight(1f)
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.35f)),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                            .background(
+                                Brush.linearGradient(
+                                    colors =
+                                        listOf(
+                                            WaChatBg,
+                                            Color(0xFF0B1620).copy(alpha = 0.92f),
+                                            WaChatBg,
+                                        ),
+                                    start = Offset.Zero,
+                                    end = Offset(800f, 1200f),
+                                ),
+                            ),
                 ) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
                     itemsIndexed(
                         bubbles,
                         key = { idx, _ -> "${thread.id}_$idx" },
@@ -157,10 +204,11 @@ fun ThreadDetailOverlay(
                         Text(
                             text = stringResource(R.string.thread_full_conversation_wire),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
+                            color = WaSubtleText,
                             modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
                         )
                     }
+                }
                 }
                 ThreadComposerBar(
                     onEmoji = { onUserMessage(context.getString(R.string.thread_cd_emoji)) },
@@ -184,13 +232,24 @@ private fun ThreadChatHeader(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
+                .background(WaHeaderBg)
+                .drawBehind {
+                    val stroke = 1.dp.toPx()
+                    drawLine(
+                        WaHeaderBorder,
+                        Offset(0f, size.height - stroke / 2),
+                        Offset(size.width, size.height - stroke / 2),
+                        strokeWidth = stroke,
+                    )
+                }
+                .padding(start = 4.dp, top = 8.dp, end = 4.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.cd_back),
+                tint = WaSubtleText,
             )
         }
         val initial =
@@ -198,12 +257,17 @@ private fun ThreadChatHeader(
         Box(
             modifier =
                 Modifier
-                    .size(42.dp)
+                    .size(38.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .background(WaAvatarSurface),
             contentAlignment = Alignment.Center,
         ) {
-            Text(initial, style = MaterialTheme.typography.titleMedium)
+            Text(
+                initial,
+                style = MaterialTheme.typography.titleSmall,
+                color = WaBubbleText,
+                fontWeight = FontWeight.Bold,
+            )
         }
         Column(
             modifier =
@@ -211,18 +275,23 @@ private fun ThreadChatHeader(
                     .weight(1f)
                     .padding(horizontal = 10.dp),
         ) {
-            Text(thread.title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                thread.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = WaBubbleText,
+                fontWeight = FontWeight.SemiBold,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 thread.peerAddress?.let { addr ->
                     Text(
                         addr,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = WaSubtleText,
                     )
                     Text(
                         "·",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
+                        color = WaSubtleText,
                     )
                 }
                 Text(
@@ -237,19 +306,31 @@ private fun ThreadChatHeader(
                         if (thread.showRcsBadge) {
                             PhoniqAccent
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            WaSubtleText
                         },
                 )
             }
         }
         IconButton(onClick = onVideo) {
-            Icon(Icons.Default.Videocam, contentDescription = stringResource(R.string.thread_cd_video_call))
+            Icon(
+                Icons.Default.Videocam,
+                contentDescription = stringResource(R.string.thread_cd_video_call),
+                tint = WaSubtleText,
+            )
         }
         IconButton(onClick = onVoice) {
-            Icon(Icons.Default.Call, contentDescription = stringResource(R.string.thread_cd_voice_call))
+            Icon(
+                Icons.Default.Call,
+                contentDescription = stringResource(R.string.thread_cd_voice_call),
+                tint = WaSubtleText,
+            )
         }
         IconButton(onClick = onOverflow) {
-            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.thread_cd_thread_menu))
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = stringResource(R.string.thread_cd_thread_menu),
+                tint = WaSubtleText,
+            )
         }
     }
 }
@@ -262,7 +343,7 @@ private fun ThreadRcsFeatureBar() {
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 4.dp),
         shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        color = WaBubbleReceived.copy(alpha = 0.92f),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -278,7 +359,7 @@ private fun ThreadRcsFeatureBar() {
             Text(
                 stringResource(R.string.thread_rcs_active_detail),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = WaSubtleText,
                 modifier = Modifier.weight(1f),
             )
             Text("📎📍🎤", style = MaterialTheme.typography.bodySmall)
@@ -307,13 +388,13 @@ private fun ThreadSmsPlainBar(text: String) {
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 4.dp),
         shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        color = WaBubbleReceived.copy(alpha = 0.55f),
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = WaSubtleText,
         )
     }
 }
@@ -353,50 +434,70 @@ private fun ThreadComposerBar(
     onSend: () -> Unit,
 ) {
     Surface(
-        tonalElevation = 3.dp,
-        shadowElevation = 2.dp,
-        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        color = WaHeaderBg,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    val stroke = 1.dp.toPx()
+                    drawLine(
+                        WaHeaderBorder,
+                        Offset(0f, stroke / 2),
+                        Offset(size.width, stroke / 2),
+                        strokeWidth = stroke,
+                    )
+                },
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 10.dp),
+                    .padding(start = 8.dp, top = 6.dp, end = 8.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             IconButton(onClick = onEmoji) {
-                Icon(Icons.Default.Mood, contentDescription = stringResource(R.string.thread_cd_emoji))
+                Icon(
+                    Icons.Default.Mood,
+                    contentDescription = stringResource(R.string.thread_cd_emoji),
+                    tint = WaSubtleText,
+                )
             }
             Surface(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .height(44.dp),
+                        .height(42.dp),
                 shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                color = WaComposerField,
             ) {
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Text(
                         stringResource(R.string.thread_composer_hint),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                        color = WaSubtleText,
                     )
                 }
             }
             IconButton(onClick = onAttach) {
-                Icon(Icons.Default.AttachFile, contentDescription = stringResource(R.string.thread_cd_attach))
+                Icon(
+                    Icons.Default.AttachFile,
+                    contentDescription = stringResource(R.string.thread_cd_attach),
+                    tint = WaSubtleText,
+                )
             }
             FilledIconButton(
                 onClick = onSend,
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier.size(42.dp),
                 colors =
                     IconButtonDefaults.filledIconButtonColors(
-                        containerColor = PhoniqAccent,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = WaSendGreen,
+                        contentColor = Color.White,
                     ),
             ) {
                 Icon(
@@ -448,19 +549,19 @@ private fun ThreadDayDivider(label: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+        HorizontalDivider(modifier = Modifier.weight(1f), color = WaHeaderBorder.copy(alpha = 0.35f))
         Text(
             label,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             modifier =
                 Modifier
                     .padding(horizontal = 12.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(WaDatePillBg)
                     .padding(horizontal = 12.dp, vertical = 4.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = WaSubtleText,
         )
-        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+        HorizontalDivider(modifier = Modifier.weight(1f), color = WaHeaderBorder.copy(alpha = 0.35f))
     }
 }
 
@@ -471,30 +572,40 @@ private fun TextBubbleRow(
     outgoing: Boolean,
     ticks: MessageTickVisual,
 ) {
+    val sentShape =
+        RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomEnd = 2.dp, bottomStart = 8.dp)
+    val receivedShape =
+        RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomEnd = 8.dp, bottomStart = 2.dp)
     val bg =
         if (outgoing) {
-            MaterialTheme.colorScheme.secondary.copy(alpha = 0.32f)
+            waSentBubbleFill(PhoniqAccent)
         } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+            WaBubbleReceived
         }
+    val shape = if (outgoing) sentShape else receivedShape
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (outgoing) Arrangement.End else Arrangement.Start,
     ) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = shape,
             color = bg,
             modifier = Modifier.widthIn(max = 320.dp),
         ) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Text(body, style = MaterialTheme.typography.bodyMedium)
+            Column(Modifier.padding(start = 10.dp, top = 6.dp, end = 10.dp, bottom = 4.dp)) {
+                Text(body, style = MaterialTheme.typography.bodyMedium, color = WaBubbleText, lineHeight = 20.sp)
                 Row(
                     modifier = Modifier.align(Alignment.End),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                    TickGlyphs(ticks)
+                    Text(
+                        time,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (outgoing) WaTimeOutgoing else WaTimeIncoming,
+                        fontSize = 11.sp,
+                    )
+                    TickGlyphs(ticks, outgoing)
                 }
             }
         }
@@ -502,12 +613,17 @@ private fun TextBubbleRow(
 }
 
 @Composable
-private fun TickGlyphs(ticks: MessageTickVisual) {
+private fun TickGlyphs(ticks: MessageTickVisual, outgoing: Boolean) {
     val color =
         when (ticks) {
             MessageTickVisual.Read -> PhoniqAccent
-            MessageTickVisual.None -> androidx.compose.ui.graphics.Color.Transparent
-            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+            MessageTickVisual.None -> Color.Transparent
+            else ->
+                if (outgoing) {
+                    WaTickMuted
+                } else {
+                    WaTimeIncoming
+                }
         }
     val text =
         when (ticks) {
@@ -518,7 +634,7 @@ private fun TickGlyphs(ticks: MessageTickVisual) {
             -> "✓✓"
         }
     if (text.isNotEmpty()) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = color)
+        Text(text, style = MaterialTheme.typography.labelSmall, color = color, fontSize = 11.sp)
     }
 }
 
@@ -545,8 +661,8 @@ private fun ReactionChipRow(
 private fun RichLinkBubbleRow(bubble: ConversationBubble.RichLinkBubble) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomEnd = 8.dp, bottomStart = 2.dp),
+            color = WaBubbleReceived,
             modifier = Modifier.widthIn(max = 320.dp),
         ) {
             Column(Modifier.padding(10.dp)) {
@@ -558,23 +674,30 @@ private fun RichLinkBubbleRow(bubble: ConversationBubble.RichLinkBubble) {
                             style = MaterialTheme.typography.labelSmall,
                             color = PhoniqAccent,
                         )
-                        Text(bubble.title, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            bubble.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = WaBubbleText,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                         Text(
                             bubble.description,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = WaSubtleText,
                         )
                     }
                 }
                 Text(
                     bubble.footerMessage,
                     style = MaterialTheme.typography.bodyMedium,
+                    color = WaBubbleText,
                     modifier = Modifier.padding(top = 6.dp),
                 )
                 Text(
                     bubble.time,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = WaTimeIncoming,
+                    fontSize = 11.sp,
                     modifier = Modifier.align(Alignment.End),
                 )
             }
@@ -585,13 +708,15 @@ private fun RichLinkBubbleRow(bubble: ConversationBubble.RichLinkBubble) {
 @Composable
 private fun VoiceBubbleRow(bubble: ConversationBubble.VoiceNote) {
     val waves = listOf(10.dp, 16.dp, 8.dp, 14.dp, 6.dp, 18.dp, 10.dp, 12.dp, 8.dp, 14.dp)
+    val sentShape =
+        RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomEnd = 2.dp, bottomStart = 8.dp)
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.32f),
+            shape = sentShape,
+            color = waSentBubbleFill(PhoniqAccent),
             modifier = Modifier.widthIn(max = 280.dp),
         ) {
-            Column(Modifier.padding(10.dp)) {
+            Column(Modifier.padding(start = 10.dp, top = 6.dp, end = 10.dp, bottom = 4.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -599,7 +724,7 @@ private fun VoiceBubbleRow(bubble: ConversationBubble.VoiceNote) {
                     Icon(
                         Icons.Default.PlayArrow,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = WaBubbleText,
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -612,7 +737,7 @@ private fun VoiceBubbleRow(bubble: ConversationBubble.VoiceNote) {
                                         .width(3.dp)
                                         .height(h)
                                         .clip(RoundedCornerShape(2.dp))
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                                        .background(WaBubbleText.copy(alpha = 0.35f)),
                             )
                         }
                     }
@@ -620,6 +745,7 @@ private fun VoiceBubbleRow(bubble: ConversationBubble.VoiceNote) {
                         bubble.durationLabel,
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(start = 4.dp),
+                        color = WaBubbleText,
                     )
                 }
                 Row(
@@ -630,9 +756,10 @@ private fun VoiceBubbleRow(bubble: ConversationBubble.VoiceNote) {
                     Text(
                         bubble.bubbleTime,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
+                        color = WaTimeOutgoing,
+                        fontSize = 11.sp,
                     )
-                    TickGlyphs(bubble.ticks)
+                    TickGlyphs(bubble.ticks, outgoing = true)
                 }
             }
         }
@@ -643,22 +770,16 @@ private fun VoiceBubbleRow(bubble: ConversationBubble.VoiceNote) {
 private fun TypingBubbleRow() {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomEnd = 8.dp, bottomStart = 2.dp),
+            color = WaBubbleReceived,
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                repeat(3) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)),
-                    )
+                repeat(3) { index ->
+                    TypingDot(delayMs = index * 200)
                 }
             }
         }
@@ -666,11 +787,40 @@ private fun TypingBubbleRow() {
 }
 
 @Composable
+private fun TypingDot(delayMs: Int) {
+    val transition = rememberInfiniteTransition(label = "typing")
+    val fraction by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(600, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+                initialStartOffset = StartOffset(delayMs),
+            ),
+        label = "typingPulse",
+    )
+    val density = LocalDensity.current
+    val travel = with(density) { 5.dp.toPx() }
+    Box(
+        modifier =
+            Modifier
+                .size(6.dp)
+                .graphicsLayer {
+                    translationY = -fraction * travel
+                    alpha = 0.4f + fraction * 0.6f
+                }
+                .clip(CircleShape)
+                .background(WaSubtleText),
+    )
+}
+
+@Composable
 private fun SystemLineRow(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.outline,
+        color = WaSubtleText.copy(alpha = 0.85f),
         modifier =
             Modifier
                 .fillMaxWidth()

@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,6 +30,8 @@ import androidx.compose.material.icons.automirrored.filled.CallReceived
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
@@ -40,9 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.foundation.shape.CircleShape
@@ -55,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -100,25 +104,21 @@ fun PhoneScreen(
         DialpadSheet(onDismiss = { showDialpad = false })
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            SecondaryTabRow(selectedTabIndex = section.ordinal) {
-                Tab(
-                    selected = section == PhoneSection.Recent,
-                    onClick = { section = PhoneSection.Recent },
-                    text = { Text(stringResource(R.string.phone_tab_recent)) },
-                )
-                Tab(
-                    selected = section == PhoneSection.Contacts,
-                    onClick = { section = PhoneSection.Contacts },
-                    text = { Text(stringResource(R.string.phone_tab_contacts)) },
-                )
-                Tab(
-                    selected = section == PhoneSection.Favorites,
-                    onClick = { section = PhoneSection.Favorites },
-                    text = { Text(stringResource(R.string.phone_tab_favorites)) },
-                )
-            }
+    val fabIcon =
+        when (section) {
+            PhoneSection.Recent -> Icons.Default.Dialpad
+            PhoneSection.Contacts -> Icons.Default.PersonAdd
+            PhoneSection.Favorites -> Icons.Default.Star
+        }
+    val fabCd =
+        when (section) {
+            PhoneSection.Recent -> stringResource(R.string.cd_fab_keypad)
+            PhoneSection.Contacts -> stringResource(R.string.cd_fab_add_contact)
+            PhoneSection.Favorites -> stringResource(R.string.cd_fab_add_favorite)
+        }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
             when (section) {
                 PhoneSection.Recent ->
                     RecentCallsPanel(
@@ -133,37 +133,100 @@ fun PhoneScreen(
                     FavoritesPanel(onUserMessage = onUserMessage)
             }
         }
+        DialerBottomBar(
+            section = section,
+            onSection = { section = it },
+            fabIcon = fabIcon,
+            fabContentDescription = fabCd,
+            onFabClick = {
+                when (section) {
+                    PhoneSection.Recent -> showDialpad = true
+                    PhoneSection.Contacts -> onUserMessage(context.getString(R.string.toast_add_contact_placeholder))
+                    PhoneSection.Favorites -> onUserMessage(context.getString(R.string.toast_add_favorite_placeholder))
+                }
+            },
+        )
+    }
+}
 
-        val fabIcon =
-            when (section) {
-                PhoneSection.Recent -> Icons.Default.Dialpad
-                PhoneSection.Contacts -> Icons.Default.PersonAdd
-                PhoneSection.Favorites -> Icons.Default.Star
-            }
-        val fabCd =
-            when (section) {
-                PhoneSection.Recent -> stringResource(R.string.cd_fab_keypad)
-                PhoneSection.Contacts -> stringResource(R.string.cd_fab_add_contact)
-                PhoneSection.Favorites -> stringResource(R.string.cd_fab_add_favorite)
-            }
-        Box(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(20.dp)
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Brush.linearGradient(listOf(PhoniqAccent, PhoniqSecondary)))
-                    .clickable {
-                        when (section) {
-                            PhoneSection.Recent -> showDialpad = true
-                            PhoneSection.Contacts -> onUserMessage(context.getString(R.string.toast_add_contact_placeholder))
-                            PhoneSection.Favorites -> onUserMessage(context.getString(R.string.toast_add_favorite_placeholder))
-                        }
-                    },
-            contentAlignment = Alignment.Center,
+@Composable
+private fun DialerBottomBar(
+    section: PhoneSection,
+    onSection: (PhoneSection) -> Unit,
+    fabIcon: ImageVector,
+    fabContentDescription: String,
+    onFabClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Icon(fabIcon, contentDescription = fabCd, tint = Color.White, modifier = Modifier.size(24.dp))
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = PhoniqSurface,
+                border = BorderStroke(1.dp, PhoniqBorder),
+            ) {
+                Row(
+                    modifier =
+                        Modifier
+                            .height(52.dp)
+                            .width(180.dp)
+                            .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    val tabs =
+                        listOf(
+                            Triple(PhoneSection.Recent, Icons.Default.History, R.string.phone_tab_recent),
+                            Triple(PhoneSection.Contacts, Icons.Filled.Groups, R.string.phone_tab_contacts),
+                            Triple(PhoneSection.Favorites, Icons.Default.Star, R.string.phone_tab_favorites),
+                        )
+                    tabs.forEach { (sec, icon, labelRes) ->
+                        val selected = section == sec
+                        Box(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        if (selected) PhoniqAccent.copy(alpha = 0.2f) else Color.Transparent,
+                                    )
+                                    .clickable { onSection(sec) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = stringResource(labelRes),
+                                modifier = Modifier.size(22.dp),
+                                tint = if (selected) PhoniqAccent else PhoniqTextSecondaryMock,
+                            )
+                        }
+                    }
+                }
+            }
+            Box(
+                modifier =
+                    Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Brush.linearGradient(listOf(PhoniqAccent, PhoniqSecondary)))
+                        .clickable(onClick = onFabClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    fabIcon,
+                    contentDescription = fabContentDescription,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
         }
     }
 }
@@ -216,7 +279,7 @@ private fun RecentCallsPanel(
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 88.dp),
+                contentPadding = PaddingValues(bottom = 8.dp),
             ) {
                 itemsIndexed(
                     filtered,
@@ -436,33 +499,36 @@ private fun ContactsPanel(onUserMessage: (String) -> Unit) {
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 88.dp),
+        contentPadding = PaddingValues(bottom = 8.dp),
     ) {
         item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text(stringResource(R.string.contacts_search_placeholder)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                ),
-            )
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 14.dp, top = 8.dp, end = 14.dp, bottom = 4.dp),
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.contacts_search_placeholder)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors =
+                        TextFieldDefaults.colors(
+                            unfocusedContainerColor = PhoniqSurface,
+                            focusedContainerColor = PhoniqSurface,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                        ),
+                )
+            }
         }
         if (filtered.isNotEmpty()) {
             item {
-                Text(
-                    stringResource(R.string.contacts_all_label),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 2.dp),
-                )
+                MockupSectionLabel(text = stringResource(R.string.contacts_all_label))
             }
         }
         items(filtered, key = { it.id }) { row ->
@@ -549,7 +615,7 @@ private fun FavoritesPanel(onUserMessage: (String) -> Unit) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-        contentPadding = PaddingValues(bottom = 88.dp, top = 8.dp),
+        contentPadding = PaddingValues(bottom = 8.dp, top = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
