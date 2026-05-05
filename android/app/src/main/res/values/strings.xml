@@ -97,9 +97,9 @@
     <string name="otp_copy_btn">Copy</string>
     <string name="otp_expired">Expired</string>
     <string name="otp_copied_toast">OTP %1$s copied</string>
-    <string name="money_savings_label">Monthly savings</string>
-    <string name="money_txn_title">Recent transactions</string>
-    <string name="money_txn_see_all">See all</string>
+    <string name="money_savings_label">Monthly Savings</string>
+    <string name="money_txn_title">Recent Transactions</string>
+    <string name="money_txn_see_all">See all →</string>
     <string name="money_tools_label">Money tools</string>
     <string name="money_tool_bill_title">Bill due</string>
     <string name="money_tool_bill_sub">CC, utilities, recharge</string>
@@ -113,7 +113,7 @@
     <string name="money_tool_export_sub">CSV / PDF</string>
     <string name="money_categories_title">Budget tracker</string>
     <string name="money_donut_section">Spend mix</string>
-    <string name="money_donut_caption">This month (sample)</string>
+    <string name="money_donut_caption">this month</string>
     <string name="toast_money_summary_tap">Month detail — Room + SMS parser next.</string>
 
     <string name="settings_title">Settings</string>

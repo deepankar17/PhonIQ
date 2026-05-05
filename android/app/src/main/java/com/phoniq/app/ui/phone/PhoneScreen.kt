@@ -1,6 +1,8 @@
 package com.phoniq.app.ui.phone
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,27 +21,27 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallMade
+import androidx.compose.material.icons.automirrored.filled.CallMissed
+import androidx.compose.material.icons.automirrored.filled.CallReceived
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.automirrored.filled.Message
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
@@ -50,12 +52,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.phoniq.app.R
 import com.phoniq.app.data.SampleData
 import com.phoniq.app.data.model.CallChannel
@@ -65,7 +71,14 @@ import com.phoniq.app.data.model.QuickCallEntry
 import com.phoniq.app.data.model.RecentCall
 import com.phoniq.app.data.model.RecentCallFilter
 import com.phoniq.app.data.model.matches
+import com.phoniq.app.ui.components.MockupSectionLabel
 import com.phoniq.app.ui.theme.PhoniqAccent
+import com.phoniq.app.ui.theme.PhoniqBorder
+import com.phoniq.app.ui.theme.PhoniqBorderSoft
+import com.phoniq.app.ui.theme.PhoniqSecondary
+import com.phoniq.app.ui.theme.PhoniqSurface
+import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
+import com.phoniq.app.ui.theme.PhoniqTextSubtle
 
 private enum class PhoneSection {
     Recent,
@@ -75,12 +88,17 @@ private enum class PhoneSection {
 
 @Composable
 fun PhoneScreen(
-    recents: SnapshotStateList<RecentCall>,
+    recents: List<RecentCall>,
     onUserMessage: (String) -> Unit,
 ) {
     val context = LocalContext.current
     var section by remember { mutableStateOf(PhoneSection.Recent) }
     var recentFilter by remember { mutableStateOf(RecentCallFilter.All) }
+    var showDialpad by remember { mutableStateOf(false) }
+
+    if (showDialpad) {
+        DialpadSheet(onDismiss = { showDialpad = false })
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -128,27 +146,31 @@ fun PhoneScreen(
                 PhoneSection.Contacts -> stringResource(R.string.cd_fab_add_contact)
                 PhoneSection.Favorites -> stringResource(R.string.cd_fab_add_favorite)
             }
-        FloatingActionButton(
-            onClick = {
-                onUserMessage(
-                    when (section) {
-                        PhoneSection.Recent -> context.getString(R.string.toast_keypad_placeholder)
-                        PhoneSection.Contacts -> context.getString(R.string.toast_add_contact_placeholder)
-                        PhoneSection.Favorites -> context.getString(R.string.toast_add_favorite_placeholder)
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(20.dp)
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Brush.linearGradient(listOf(PhoniqAccent, PhoniqSecondary)))
+                    .clickable {
+                        when (section) {
+                            PhoneSection.Recent -> showDialpad = true
+                            PhoneSection.Contacts -> onUserMessage(context.getString(R.string.toast_add_contact_placeholder))
+                            PhoneSection.Favorites -> onUserMessage(context.getString(R.string.toast_add_favorite_placeholder))
+                        }
                     },
-                )
-            },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-            containerColor = PhoniqAccent,
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(fabIcon, contentDescription = fabCd)
+            Icon(fabIcon, contentDescription = fabCd, tint = Color.White, modifier = Modifier.size(24.dp))
         }
     }
 }
 
 @Composable
 private fun RecentCallsPanel(
-    recents: SnapshotStateList<RecentCall>,
+    recents: List<RecentCall>,
     filter: RecentCallFilter,
     onFilterChange: (RecentCallFilter) -> Unit,
     onUserMessage: (String) -> Unit,
@@ -163,25 +185,20 @@ private fun RecentCallsPanel(
                 onUserMessage(context.getString(R.string.toast_quick_call, entry.name))
             },
         )
-        Text(
-            text = stringResource(R.string.phone_section_recent_calls),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.secondary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        )
+        MockupSectionLabel(text = stringResource(R.string.phone_section_recent_calls))
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .horizontalScroll(scroll)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             RecentCallFilter.entries.forEach { f ->
-                FilterChip(
+                RecentFilterChip(
+                    label = recentFilterLabel(f),
                     selected = filter == f,
                     onClick = { onFilterChange(f) },
-                    label = { Text(recentFilterLabel(f)) },
                 )
             }
         }
@@ -208,8 +225,9 @@ private fun RecentCallsPanel(
                     Column(Modifier.fillMaxWidth()) {
                         if (index > 0) {
                             HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                                thickness = 1.dp,
+                                color = PhoniqBorderSoft,
                             )
                         }
                         RecentCallRow(call = call, onUserMessage = onUserMessage)
@@ -231,136 +249,154 @@ private fun recentFilterLabel(filter: RecentCallFilter): String =
     }
 
 @Composable
+private fun RecentFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val borderColor = if (selected) PhoniqAccent.copy(alpha = 0.45f) else PhoniqBorder
+    val bg = if (selected) PhoniqAccent.copy(alpha = 0.22f) else PhoniqSurface
+    val fg = if (selected) PhoniqAccent else PhoniqTextSecondaryMock
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(999.dp),
+        color = bg,
+        border = BorderStroke(1.dp, borderColor),
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = fg,
+        )
+    }
+}
+
+@Composable
 private fun RecentCallRow(
     call: RecentCall,
     onUserMessage: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    Card(
+    val spamNumberAvatar = call.isSpam && call.contactName.startsWith("+")
+    val (dirIcon, dirTint) =
+        when (call.direction) {
+            CallDirection.Incoming -> Icons.AutoMirrored.Filled.CallReceived to Color(0xFF00D4AA)
+            CallDirection.Outgoing -> Icons.AutoMirrored.Filled.CallMade to PhoniqAccent
+            CallDirection.Missed,
+            CallDirection.Rejected,
+            -> Icons.AutoMirrored.Filled.CallMissed to Color(0xFFFF5050)
+        }
+    val cap = call.metaCaption ?: synthesizedMetaCaption(call)
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
+                .clickable {
+                    onUserMessage(context.getString(R.string.toast_call_contact, call.contactName))
+                }
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(call.contactName, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = call.metaCaption ?: synthesizedMetaCaption(call),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (call.metaCaption != null &&
-                        call.numberOrLabel.isNotBlank() &&
-                        call.numberOrLabel != call.contactName
-                    ) {
-                        Text(
-                            call.numberOrLabel,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    } else if (call.metaCaption == null) {
-                        Text(
-                            call.numberOrLabel,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary,
-                        )
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(top = 6.dp),
-                    ) {
-                        if (call.isSpam) {
-                            AssistChip(
-                                onClick = {},
-                                enabled = false,
-                                label = { Text(stringResource(R.string.chip_likely_spam)) },
-                                colors =
-                                    AssistChipDefaults.assistChipColors(
-                                        disabledContainerColor = MaterialTheme.colorScheme.errorContainer,
-                                        disabledLabelColor = MaterialTheme.colorScheme.onErrorContainer,
-                                    ),
-                            )
-                        }
-                        if (call.isBlocked) {
-                            AssistChip(
-                                onClick = {},
-                                enabled = false,
-                                label = { Text(stringResource(R.string.chip_blocked)) },
-                            )
-                        }
-                        if (call.missedStreak > 1 && call.metaCaption?.contains("Missed (") != true) {
-                            AssistChip(
-                                onClick = {},
-                                enabled = false,
-                                label = { Text(stringResource(R.string.chip_missed_count, call.missedStreak)) },
-                            )
-                        }
-                        if (call.isInternational) {
-                            AssistChip(
-                                onClick = {},
-                                enabled = false,
-                                label = { Text(stringResource(R.string.chip_international)) },
-                            )
-                        }
-                    }
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(call.timeLabel, style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        directionLabel(call.direction),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.secondary,
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.padding(top = 8.dp),
-                    ) {
-                        if (call.channel == CallChannel.Pstn) {
-                            IconButton(
-                                onClick = {
-                                    onUserMessage(
-                                        context.getString(R.string.toast_redial_pstn, call.contactName),
-                                    )
-                                },
-                            ) {
-                                Icon(Icons.Default.Phone, contentDescription = stringResource(R.string.cd_redial))
-                            }
-                        }
-                        if (call.channel == CallChannel.WhatsAppVoice) {
-                            IconButton(
-                                onClick = {
-                                    onUserMessage(
-                                        context.getString(R.string.toast_wa_voice_handoff, call.contactName),
-                                    )
-                                },
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.Message, contentDescription = stringResource(R.string.cd_wa_voice))
-                            }
-                        }
-                        if (call.channel == CallChannel.WhatsAppVideo) {
-                            IconButton(
-                                onClick = {
-                                    onUserMessage(
-                                        context.getString(R.string.toast_wa_video_handoff, call.contactName),
-                                    )
-                                },
-                            ) {
-                                Icon(Icons.Default.Videocam, contentDescription = stringResource(R.string.cd_wa_video))
-                            }
-                        }
-                    }
-                }
+        val g0 = Color(call.avatarStartArgb.toInt())
+        val g1 = Color(call.avatarEndArgb.toInt())
+        Box(
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(g0, g1))),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (spamNumberAvatar) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            } else {
+                Text(
+                    text = call.contactName.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
+        }
+        Column(Modifier.weight(1f)) {
+            if (call.isSpam && !spamNumberAvatar) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        call.contactName,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFFF5050).copy(alpha = 0.12f),
+                    ) {
+                        Text(
+                            stringResource(R.string.chip_likely_spam),
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFFF5050),
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    call.contactName,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = 2.dp),
+            ) {
+                Icon(dirIcon, contentDescription = null, modifier = Modifier.size(16.dp), tint = dirTint)
+                Text(
+                    cap,
+                    fontSize = 12.sp,
+                    color = PhoniqTextSecondaryMock,
+                )
+            }
+            Text(
+                call.timeLabel,
+                fontSize = 11.sp,
+                color = PhoniqTextSubtle,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        IconButton(
+            onClick = {
+                when (call.channel) {
+                    CallChannel.Pstn ->
+                        onUserMessage(context.getString(R.string.toast_redial_pstn, call.contactName))
+                    CallChannel.WhatsAppVoice ->
+                        onUserMessage(context.getString(R.string.toast_wa_voice_handoff, call.contactName))
+                    CallChannel.WhatsAppVideo ->
+                        onUserMessage(context.getString(R.string.toast_wa_video_handoff, call.contactName))
+                }
+            },
+            modifier = Modifier.size(40.dp),
+        ) {
+            Icon(
+                Icons.Default.Phone,
+                contentDescription = stringResource(R.string.cd_redial),
+                modifier = Modifier.size(18.dp),
+                tint = PhoniqTextSubtle,
+            )
         }
     }
 }

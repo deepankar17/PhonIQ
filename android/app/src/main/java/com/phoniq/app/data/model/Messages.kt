@@ -19,6 +19,10 @@ data class MessageThread(
     val timeLabel: String,
     val unread: Boolean,
     val categories: Set<MessageThreadCategory>,
+    /** List-row avatar gradient (`wa-thread-avatar` in mockup). */
+    val avatarStartArgb: Long = 0xFF6C63FFL,
+    val avatarEndArgb: Long = 0xFF4A43CCL,
+    val showOnlineDot: Boolean = false,
     val subtitleBadge: String? = null,
     /** Read-only mock for thread header / "who is this" style fusion. */
     val lastCallSummary: String? = null,

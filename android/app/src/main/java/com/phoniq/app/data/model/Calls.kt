@@ -29,6 +29,9 @@ data class RecentCall(
      * `WhatsApp · 7m`). When null, the UI synthesizes a short line from [direction] + [channel].
      */
     val metaCaption: String? = null,
+    /** Avatar gradient (mockup `call-avatar` inline gradients). */
+    val avatarStartArgb: Long = 0xFF607D8BL,
+    val avatarEndArgb: Long = 0xFF455A64L,
 )
 
 enum class RecentCallFilter {

@@ -23,6 +23,8 @@ object SampleData {
                 direction = CallDirection.Incoming,
                 channel = CallChannel.Pstn,
                 metaCaption = "Incoming · 3m",
+                avatarStartArgb = 0xFF8C5FE8L,
+                avatarEndArgb = 0xFF6C63FFL,
             ),
             RecentCall(
                 id = "rc_hdfc",
@@ -32,6 +34,8 @@ object SampleData {
                 direction = CallDirection.Outgoing,
                 channel = CallChannel.Pstn,
                 metaCaption = "Outgoing · 2m",
+                avatarStartArgb = 0xFF1A6FD4L,
+                avatarEndArgb = 0xFF0D4FA8L,
             ),
             RecentCall(
                 id = "rc_vikram",
@@ -42,6 +46,8 @@ object SampleData {
                 channel = CallChannel.Pstn,
                 missedStreak = 2,
                 metaCaption = "Missed (2)",
+                avatarStartArgb = 0xFF607D8BL,
+                avatarEndArgb = 0xFF455A64L,
             ),
             RecentCall(
                 id = "rc_spam_num",
@@ -52,6 +58,8 @@ object SampleData {
                 channel = CallChannel.Pstn,
                 isSpam = true,
                 metaCaption = "Missed",
+                avatarStartArgb = 0xFFE35353L,
+                avatarEndArgb = 0xFF8F1D1DL,
             ),
             RecentCall(
                 id = "rc_rahul",
@@ -61,6 +69,8 @@ object SampleData {
                 direction = CallDirection.Outgoing,
                 channel = CallChannel.WhatsAppVideo,
                 metaCaption = "WhatsApp · 7m",
+                avatarStartArgb = 0xFFE87D20L,
+                avatarEndArgb = 0xFFC45A00L,
             ),
             RecentCall(
                 id = "rc_ananya",
@@ -70,6 +80,8 @@ object SampleData {
                 direction = CallDirection.Incoming,
                 channel = CallChannel.WhatsAppVoice,
                 metaCaption = "WhatsApp · 11m",
+                avatarStartArgb = 0xFF20A060L,
+                avatarEndArgb = 0xFF0D7040L,
             ),
             RecentCall(
                 id = "rc_mom",
@@ -79,6 +91,8 @@ object SampleData {
                 direction = CallDirection.Outgoing,
                 channel = CallChannel.Pstn,
                 metaCaption = "Outgoing · 9m",
+                avatarStartArgb = 0xFFE040A0L,
+                avatarEndArgb = 0xFFB03080L,
             ),
             RecentCall(
                 id = "rc_karan",
@@ -88,6 +102,8 @@ object SampleData {
                 direction = CallDirection.Incoming,
                 channel = CallChannel.WhatsAppVoice,
                 metaCaption = "WhatsApp · 18m",
+                avatarStartArgb = 0xFF4488CCL,
+                avatarEndArgb = 0xFF2266AAL,
             ),
             RecentCall(
                 id = "rc_neha",
@@ -97,6 +113,8 @@ object SampleData {
                 direction = CallDirection.Incoming,
                 channel = CallChannel.WhatsAppVideo,
                 metaCaption = "WhatsApp · 4m",
+                avatarStartArgb = 0xFFAB47BCL,
+                avatarEndArgb = 0xFF8E24AAL,
             ),
             RecentCall(
                 id = "rc_icici",
@@ -106,6 +124,8 @@ object SampleData {
                 direction = CallDirection.Incoming,
                 channel = CallChannel.Pstn,
                 metaCaption = "Incoming · 2m",
+                avatarStartArgb = 0xFFEF6C00L,
+                avatarEndArgb = 0xFFD84315L,
             ),
             RecentCall(
                 id = "rc_intl",
@@ -116,6 +136,8 @@ object SampleData {
                 channel = CallChannel.Pstn,
                 isInternational = true,
                 metaCaption = "Missed · International",
+                avatarStartArgb = 0xFF5C6BC0L,
+                avatarEndArgb = 0xFF3949ABL,
             ),
             RecentCall(
                 id = "rc_unknown",
@@ -125,6 +147,8 @@ object SampleData {
                 direction = CallDirection.Outgoing,
                 channel = CallChannel.Pstn,
                 metaCaption = "Outgoing · 1m",
+                avatarStartArgb = 0xFF78909CL,
+                avatarEndArgb = 0xFF546E7AL,
             ),
             RecentCall(
                 id = "rc_blocked",
@@ -135,6 +159,8 @@ object SampleData {
                 channel = CallChannel.Pstn,
                 isBlocked = true,
                 metaCaption = "Rejected automatically (2)",
+                avatarStartArgb = 0xFF757575L,
+                avatarEndArgb = 0xFF424242L,
             ),
             RecentCall(
                 id = "rc_scam",
@@ -146,6 +172,8 @@ object SampleData {
                 isSpam = true,
                 missedStreak = 5,
                 metaCaption = "Missed (5)",
+                avatarStartArgb = 0xFFE35353L,
+                avatarEndArgb = 0xFF8F1D1DL,
             ),
         )
 
@@ -198,6 +226,8 @@ object SampleData {
                         MessageThreadCategory.Transaction,
                         MessageThreadCategory.Otp,
                     ),
+                avatarStartArgb = 0xFF1A6FD4L,
+                avatarEndArgb = 0xFF0D4FA8L,
                 rowPills = listOf("OTP", "TXN"),
                 peerAddress = "VM-HDFCBK",
                 otpCode = "482916",
@@ -210,6 +240,9 @@ object SampleData {
                 timeLabel = "9:15",
                 unread = true,
                 categories = setOf(MessageThreadCategory.Personal),
+                avatarStartArgb = 0xFF8C5FE8L,
+                avatarEndArgb = 0xFF6C63FFL,
+                showOnlineDot = true,
                 showRcsBadge = true,
                 lastCallSummary = "Yesterday · Incoming · WhatsApp voice · 4 min",
                 localNote = "Close friend — dinner plans",
@@ -222,6 +255,8 @@ object SampleData {
                 timeLabel = "8:47",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Otp),
+                avatarStartArgb = 0xFFE84040L,
+                avatarEndArgb = 0xFFB02020L,
                 subtitleBadge = "OTP",
                 rowPills = listOf("OTP"),
                 peerAddress = "VM-VFSOTP",
@@ -235,6 +270,8 @@ object SampleData {
                 timeLabel = "Yesterday",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Transaction),
+                avatarStartArgb = 0xFF20A060L,
+                avatarEndArgb = 0xFF0D7040L,
                 rowPills = listOf("TXN"),
             ),
             MessageThread(
@@ -244,6 +281,8 @@ object SampleData {
                 timeLabel = "Yesterday",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Spam),
+                avatarStartArgb = 0xFFE87D20L,
+                avatarEndArgb = 0xFFC45A00L,
                 rowPills = listOf("Promo"),
             ),
             MessageThread(
@@ -253,6 +292,9 @@ object SampleData {
                 timeLabel = "Yesterday",
                 unread = true,
                 categories = setOf(MessageThreadCategory.Personal),
+                avatarStartArgb = 0xFFE87D20L,
+                avatarEndArgb = 0xFFC45A00L,
+                showOnlineDot = true,
                 showRcsBadge = true,
                 listTypingHint = true,
                 peerAddress = "+91 91234 56789",
@@ -264,6 +306,8 @@ object SampleData {
                 timeLabel = "7:12",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Transaction),
+                avatarStartArgb = 0xFF5F48FFL,
+                avatarEndArgb = 0xFF4632CFL,
                 rowPills = listOf("TXN"),
                 peerAddress = "BH-PhonePe",
             ),
@@ -274,6 +318,8 @@ object SampleData {
                 timeLabel = "Today",
                 unread = true,
                 categories = setOf(MessageThreadCategory.Bill),
+                avatarStartArgb = 0xFF2E7D32L,
+                avatarEndArgb = 0xFF1B5E20L,
                 rowPills = listOf("BILL", "Due"),
             ),
             MessageThread(
@@ -287,6 +333,8 @@ object SampleData {
                         MessageThreadCategory.Bill,
                         MessageThreadCategory.Delivery,
                     ),
+                avatarStartArgb = 0xFF1A73E8L,
+                avatarEndArgb = 0xFF0D47A1L,
                 rowPills = listOf("BILL", "Delivery"),
             ),
             MessageThread(
@@ -296,6 +344,8 @@ object SampleData {
                 timeLabel = "Yesterday",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Bill),
+                avatarStartArgb = 0xFF8D6E63L,
+                avatarEndArgb = 0xFF5D4037L,
                 rowPills = listOf("BILL", "Overdue"),
             ),
             MessageThread(
@@ -305,6 +355,8 @@ object SampleData {
                 timeLabel = "10:08",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Delivery),
+                avatarStartArgb = 0xFFFF9800L,
+                avatarEndArgb = 0xFFEF6C00L,
                 rowPills = listOf("Tracking"),
                 peerAddress = "AD-AMAZON",
             ),
@@ -315,6 +367,8 @@ object SampleData {
                 timeLabel = "9:42",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Delivery),
+                avatarStartArgb = 0xFFFF6D00L,
+                avatarEndArgb = 0xFFFF3D00L,
                 rowPills = listOf("Tracking"),
                 peerAddress = "VK-SWIGGY",
             ),
@@ -325,6 +379,8 @@ object SampleData {
                 timeLabel = "8:30",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Delivery),
+                avatarStartArgb = 0xFF2874F0L,
+                avatarEndArgb = 0xFF0057D9L,
                 rowPills = listOf("Tracking"),
                 peerAddress = "VK-FLPKRT",
             ),
@@ -335,6 +391,8 @@ object SampleData {
                 timeLabel = "7:55",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Travel),
+                avatarStartArgb = 0xFF1E88E5L,
+                avatarEndArgb = 0xFF0D47A1L,
                 rowPills = listOf("Travel"),
             ),
             MessageThread(
@@ -348,6 +406,8 @@ object SampleData {
                         MessageThreadCategory.Travel,
                         MessageThreadCategory.Transaction,
                     ),
+                avatarStartArgb = 0xFF212121L,
+                avatarEndArgb = 0xFF000000L,
                 rowPills = listOf("Travel"),
             ),
             MessageThread(
@@ -357,6 +417,8 @@ object SampleData {
                 timeLabel = "Tue",
                 unread = false,
                 categories = setOf(MessageThreadCategory.Spam),
+                avatarStartArgb = 0xFF7E57C2L,
+                avatarEndArgb = 0xFF4527A0L,
             ),
         )
 

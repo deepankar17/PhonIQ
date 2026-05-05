@@ -1,22 +1,27 @@
 package com.phoniq.app.ui.messages
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.CurrencyRupee
 import androidx.compose.material.icons.outlined.FlightTakeoff
 import androidx.compose.material.icons.outlined.Inbox
@@ -24,33 +29,27 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Report
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phoniq.app.R
@@ -58,11 +57,15 @@ import com.phoniq.app.data.model.MessageThread
 import com.phoniq.app.data.model.MessageThreadCategory
 import com.phoniq.app.data.model.matches
 import com.phoniq.app.ui.theme.PhoniqAccent
-import kotlinx.coroutines.delay
+import com.phoniq.app.ui.theme.PhoniqBorderSoft
+import com.phoniq.app.ui.theme.PhoniqSecondary
+import com.phoniq.app.ui.theme.PhoniqSurface
+import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
+import com.phoniq.app.ui.theme.PhoniqTextSubtle
 
 @Composable
 fun MessagesScreen(
-    threads: SnapshotStateList<MessageThread>,
+    threads: List<MessageThread>,
     onComposeClick: () -> Unit = {},
     onThreadAction: (String) -> Unit = {},
 ) {
@@ -85,8 +88,17 @@ fun MessagesScreen(
                         .fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = 88.dp),
             ) {
-                items(visibleThreads, key = { it.id }) { thread ->
-                    ThreadRow(thread = thread, onOpen = { openThreadId = it.id })
+                itemsIndexed(visibleThreads, key = { _, t -> t.id }) { index, thread ->
+                    Column(Modifier.fillMaxWidth()) {
+                        ThreadRow(thread = thread, onOpen = { openThreadId = it.id })
+                        if (index < visibleThreads.lastIndex) {
+                            HorizontalDivider(
+                                color = PhoniqBorderSoft,
+                                thickness = 1.dp,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -97,14 +109,22 @@ fun MessagesScreen(
                 onUserMessage = onThreadAction,
             )
         }
-        FloatingActionButton(
-            onClick = onComposeClick,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-            containerColor = PhoniqAccent,
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 14.dp, bottom = 20.dp)
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF00D4AA), Color(0xFF009980))))
+                    .clickable(onClick = onComposeClick),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Outlined.ChatBubbleOutline,
                 contentDescription = stringResource(R.string.cd_compose_new_message),
+                tint = Color.White,
+                modifier = Modifier.size(22.dp),
             )
         }
     }
@@ -132,41 +152,71 @@ private fun MessageCategoryFilterStrip(
             Modifier
                 .fillMaxWidth()
                 .horizontalScroll(scroll)
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         MessageThreadCategory.entries.forEach { c ->
             val count = categoryMatchCount(threads, c)
-            FilterChip(
+            MsgTabChip(
+                icon = categoryIcon(c),
+                label = threadCategoryLabel(c),
+                count = count,
                 selected = selected == c,
                 onClick = { onSelect(c) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = categoryIcon(c),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-                label = {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(threadCategoryLabel(c))
-                        Text(
-                            text = count.toString(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
-                colors =
-                    FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = PhoniqAccent.copy(alpha = 0.18f),
-                        selectedLabelColor = MaterialTheme.colorScheme.onSurface,
-                        selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
-                    ),
             )
+        }
+    }
+}
+
+@Composable
+private fun MsgTabChip(
+    icon: ImageVector,
+    label: String,
+    count: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val borderColor =
+        if (selected) PhoniqAccent.copy(alpha = 0.22f) else Color.Transparent
+    val bg = if (selected) PhoniqAccent.copy(alpha = 0.18f) else PhoniqSurface
+    val fg = if (selected) PhoniqAccent else PhoniqTextSecondaryMock
+    val countBg =
+        if (selected) PhoniqAccent.copy(alpha = 0.24f) else PhoniqTextSubtle.copy(alpha = 0.22f)
+    val countFg = if (selected) PhoniqAccent else PhoniqTextSecondaryMock
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = bg,
+        border = BorderStroke(1.dp, borderColor),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = fg,
+            )
+            Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = fg)
+            Box(
+                modifier =
+                    Modifier
+                        .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(countBg)
+                        .padding(horizontal = 5.dp, vertical = 0.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    count.toString(),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = countFg,
+                )
+            }
         }
     }
 }
@@ -179,7 +229,7 @@ private fun categoryIcon(c: MessageThreadCategory): ImageVector =
         MessageThreadCategory.Personal -> Icons.Outlined.Person
         MessageThreadCategory.Transaction -> Icons.Outlined.CurrencyRupee
         MessageThreadCategory.Otp -> Icons.Outlined.Key
-        MessageThreadCategory.Bill -> Icons.Outlined.ReceiptLong
+        MessageThreadCategory.Bill -> Icons.AutoMirrored.Outlined.ReceiptLong
         MessageThreadCategory.Delivery -> Icons.Outlined.LocalShipping
         MessageThreadCategory.Travel -> Icons.Outlined.FlightTakeoff
         MessageThreadCategory.Spam -> Icons.Outlined.Report
@@ -204,180 +254,177 @@ private fun ThreadRow(
     thread: MessageThread,
     onOpen: (MessageThread) -> Unit,
 ) {
-    val context = LocalContext.current
+    val initial = thread.title.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    val g0 = Color(thread.avatarStartArgb.toInt())
+    val g1 = Color(thread.avatarEndArgb.toInt())
+    val nameColor =
+        if (thread.unread) MaterialTheme.colorScheme.onBackground else Color(0xFFF0F0F0)
+    val nameWeight = if (thread.unread) FontWeight.Bold else FontWeight.Medium
+    val timeColor = if (thread.unread) PhoniqSecondary else Color(0xFF777777)
+    val previewColor = if (thread.unread) Color(0xFFCCCCCC) else Color(0xFF777777)
     Surface(
         onClick = { onOpen(thread) },
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        ListItem(
-            leadingContent = {
-                val initial =
-                    thread.title.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box {
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                    modifier =
+                        Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(g0, g1))),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = initial,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
                     )
                 }
-            },
-            headlineContent = {
+                if (thread.showOnlineDot) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(11.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF00C472))
+                                .border(2.dp, Color(0xFF0A0A0F), CircleShape),
+                    )
+                }
+            }
+            Column(Modifier.weight(1f)) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(thread.title, style = MaterialTheme.typography.titleMedium)
-                    if (thread.showRcsBadge) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        ) {
-                            Text(
-                                "RCS",
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                    if (thread.unread) {
-                        Text("·", color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            },
-            supportingContent = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        thread.snippet,
-                        maxLines = 2,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    if (thread.rowPills.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            thread.rowPills.forEach { pill ->
-                                val (bg, fg) = pillColors(pill)
-                                Surface(shape = RoundedCornerShape(20.dp), color = bg) {
-                                    Text(
-                                        text = pill,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                        color = fg,
-                                    )
-                                }
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            thread.title,
+                            fontSize = 14.sp,
+                            fontWeight = nameWeight,
+                            color = nameColor,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (thread.showRcsBadge) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = PhoniqAccent.copy(alpha = 0.12f),
+                                border = BorderStroke(1.dp, PhoniqAccent.copy(alpha = 0.25f)),
+                            ) {
+                                Text(
+                                    "RCS",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.4.sp,
+                                    color = PhoniqAccent,
+                                )
                             }
                         }
                     }
-                    if (thread.otpCode != null) {
-                        OtpListStrip(
-                            code = thread.otpCode,
-                            initialSeconds = thread.otpExpiresSeconds,
-                            onCopy = {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    context.getString(R.string.otp_copied_toast, thread.otpCode),
-                                    android.widget.Toast.LENGTH_SHORT,
-                                ).show()
-                            },
-                        )
-                    }
-                    if (thread.listTypingHint) {
+                    Text(
+                        thread.timeLabel,
+                        fontSize = 11.sp,
+                        color = timeColor,
+                    )
+                }
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
                         Text(
-                            text = stringResource(R.string.msg_list_typing_hint),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            thread.snippet,
+                            fontSize = 12.sp,
+                            color = previewColor,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
+                        thread.rowPills.forEach { pill ->
+                            val (bg, fg) = pillColors(pill)
+                            Surface(shape = RoundedCornerShape(20.dp), color = bg) {
+                                Text(
+                                    text = pill,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 1.dp),
+                                    color = fg,
+                                )
+                            }
+                        }
+                    }
+                    if (thread.unread) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = PhoniqSecondary,
+                        ) {
+                            Text(
+                                "1",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                            )
+                        }
                     }
                 }
-            },
-            overlineContent = {
-                thread.subtitleBadge?.let {
-                    Text(it, style = MaterialTheme.typography.labelSmall)
+                if (thread.listTypingHint) {
+                    Text(
+                        text = stringResource(R.string.msg_list_typing_hint),
+                        fontSize = 12.sp,
+                        fontStyle = FontStyle.Italic,
+                        color = Color(0xFF53BDEB),
+                        modifier = Modifier.padding(top = 1.dp),
+                    )
                 }
-            },
-            trailingContent = {
-                Text(thread.timeLabel, style = MaterialTheme.typography.labelMedium)
-            },
-        )
-    }
-}
-
-@Composable
-private fun OtpListStrip(code: String, initialSeconds: Int, onCopy: () -> Unit) {
-    var remaining by rememberSaveable { mutableIntStateOf(initialSeconds) }
-    LaunchedEffect(code) {
-        while (remaining > 0) {
-            delay(1000L)
-            remaining--
-        }
-    }
-    val isExpired = remaining == 0
-    val countdownLabel = if (isExpired) {
-        stringResource(R.string.otp_expired)
-    } else {
-        "%d:%02d".format(remaining / 60, remaining % 60)
-    }
-    val otpTeal = Color(0xFF00D4AA)
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = code,
-            color = if (isExpired) MaterialTheme.colorScheme.outline else otpTeal,
-            fontSize = 16.sp,
-            letterSpacing = 3.sp,
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = if (isExpired) {
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
-            } else {
-                otpTeal.copy(alpha = 0.12f)
-            },
-        ) {
-            Text(
-                text = countdownLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (isExpired) MaterialTheme.colorScheme.error else otpTeal,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            )
-        }
-        if (!isExpired) {
-            TextButton(
-                onClick = onCopy,
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-            ) {
-                Text(
-                    stringResource(R.string.otp_copy_btn),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = otpTeal,
-                )
             }
         }
     }
 }
 
 private fun pillColors(pill: String): Pair<Color, Color> {
-    val teal = Color(0xFF00D4AA)
-    val amber = Color(0xFFF5A623)
-    val red = Color(0xFFFF6B6B)
-    val purple = Color(0xFF9575CD)
-    return when (pill.uppercase()) {
-        "OTP"                   -> teal.copy(alpha = 0.14f) to teal
-        "TXN", "TRANSACTION"    -> amber.copy(alpha = 0.14f) to amber
-        "BILL", "OVERDUE", "DUE"-> red.copy(alpha = 0.14f) to red
-        "PROMO", "SPAM"         -> purple.copy(alpha = 0.14f) to purple
-        else                    -> Color(0xFF888888).copy(alpha = 0.14f) to Color(0xFF888888)
+    val p = pill.uppercase()
+    val accentSoft = PhoniqAccent.copy(alpha = 0.14f)
+    return when (p) {
+        "OTP" ->
+            PhoniqAccent.copy(alpha = 0.15f) to Color(0xFFB6AFFF)
+        "TXN", "TRANSACTION" ->
+            PhoniqAccent.copy(alpha = 0.17f) to Color(0xFFB6AFFF)
+        "BILL", "DUE" ->
+            Color(0x29FFC400) to Color(0xFFFFD86B)
+        "OVERDUE" ->
+            Color(0x30FF5050) to Color(0xFFFF8F8F)
+        "PROMO", "SPAM" ->
+            PhoniqAccent.copy(alpha = 0.13f) to Color(0xFFD0CAFF)
+        "DELIVERY", "TRACKING" ->
+            Color(0x2900D4AA) to Color(0xFF5BE8C6)
+        "TRAVEL" ->
+            PhoniqAccent.copy(alpha = 0.18f) to Color(0xFFB6AFFF)
+        else -> accentSoft to PhoniqTextSecondaryMock
     }
 }

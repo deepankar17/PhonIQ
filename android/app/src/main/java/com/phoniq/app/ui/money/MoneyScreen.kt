@@ -1,41 +1,48 @@
 package com.phoniq.app.ui.money
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,19 +51,33 @@ import com.phoniq.app.data.SampleData
 import com.phoniq.app.data.model.CategorySpend
 import com.phoniq.app.data.model.MoneySummary
 import com.phoniq.app.data.model.RecentTransaction
+import com.phoniq.app.ui.components.MockupSectionLabel
 import com.phoniq.app.ui.shell.ShellMenuAction
 import com.phoniq.app.ui.theme.PhoniqAccent
-import com.phoniq.app.ui.theme.PhoniqOnSurfaceMuted
+import com.phoniq.app.ui.theme.PhoniqBorder
+import com.phoniq.app.ui.theme.PhoniqBorderSoft
+import com.phoniq.app.ui.theme.PhoniqBudgetBarTrack
+import com.phoniq.app.ui.theme.PhoniqCategoryBarTrack
+import com.phoniq.app.ui.theme.PhoniqDebit
+import com.phoniq.app.ui.theme.PhoniqDonutTrack
+import com.phoniq.app.ui.theme.PhoniqLegendMuted
 import com.phoniq.app.ui.theme.PhoniqSecondary
+import com.phoniq.app.ui.theme.PhoniqSummaryBorder
+import com.phoniq.app.ui.theme.PhoniqSummaryGradientA
+import com.phoniq.app.ui.theme.PhoniqSummaryGradientB
 import com.phoniq.app.ui.theme.PhoniqSurface
+import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
+import com.phoniq.app.ui.theme.PhoniqTextSubtle
 import kotlin.math.roundToInt
 
-private val ColorFood      = PhoniqAccent
-private val ColorShopping  = Color(0xFFF5A623)
-private val ColorBills     = Color(0xFFFF6B6B)
+private val ColorFood = PhoniqAccent
+private val ColorShopping = Color(0xFFF5A623)
+private val ColorBills = Color(0xFFFF6B6B)
 private val ColorTransport = Color(0xFF00D4AA)
-private val ColorOthers    = Color(0xFF888888)
-private val ColorCredit    = Color(0xFF00D4AA)
+private val ColorOthers = Color(0xFF888888)
+private val ColorCredit = PhoniqSecondary
+
+private val TxnTitleColor = Color(0xFFDDDDDD)
 
 @Composable
 fun MoneyScreen(
@@ -67,57 +88,33 @@ fun MoneyScreen(
     val summary = SampleData.moneySummary
     val categories = SampleData.categorySpends
     val transactions = SampleData.recentTransactions
+    val budgetCategories = categories.filterNot { it.name == "Others" }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-    ) {
-        item {
-            SummaryHeroCard(
-                summary = summary,
-                onClick = { onUserMessage(context.getString(R.string.toast_money_summary_tap)) },
-            )
-        }
+    LazyColumn(modifier = Modifier.fillMaxWidth()) {
+        item { SummaryHeroCard(summary = summary, onClick = { onUserMessage(context.getString(R.string.toast_money_summary_tap)) }) }
+        item { MockupSectionLabel(text = stringResource(R.string.money_tools_label), topPadding = 4.dp) }
         item { MoneyToolsStrip(onTool = onMoneyTool) }
+        item { SpendingDonutRow(categories = categories, centerAmount = summary.spentLabel) }
+        item { MockupSectionLabel(text = stringResource(R.string.money_categories_title)) }
         item {
-            Text(
-                stringResource(R.string.money_donut_section),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp),
-            )
-            SpendingDonutCard(categories = categories, centerAmount = summary.spentLabel)
-        }
-        item {
-            Text(
-                stringResource(R.string.money_categories_title),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(vertical = 4.dp),
+            BudgetTrackerGrid(
+                categories = budgetCategories,
+                modifier = Modifier.padding(start = 12.dp, top = 4.dp, end = 12.dp, bottom = 8.dp),
             )
         }
-        item { BudgetTrackerGrid(categories) }
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(R.string.money_txn_title),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                TextButton(onClick = {
-                    onUserMessage(context.getString(R.string.toast_money_summary_tap))
-                }) {
-                    Text(stringResource(R.string.money_txn_see_all))
-                }
-            }
+            RecentTransactionsHeader(
+                onSeeAll = { onUserMessage(context.getString(R.string.toast_money_summary_tap)) },
+            )
         }
         items(transactions, key = { it.merchant + it.dateLine }) { txn ->
             TransactionRow(txn)
             if (txn !== transactions.last()) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                HorizontalDivider(
+                    color = PhoniqBorderSoft,
+                    thickness = 1.dp,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                )
             }
         }
         item { Spacer(Modifier.height(80.dp)) }
@@ -126,52 +123,84 @@ fun MoneyScreen(
 
 @Composable
 private fun SummaryHeroCard(summary: MoneySummary, onClick: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = PhoniqSurface),
-        onClick = onClick,
+    val shape = RoundedCornerShape(20.dp)
+    Box(
+        modifier =
+            Modifier
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .fillMaxWidth()
+                .clip(shape)
+                .border(BorderStroke(1.dp, PhoniqSummaryBorder), shape)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(PhoniqSummaryGradientA, PhoniqSummaryGradientB),
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                    ),
+                )
+                .clickable(onClick = onClick),
     ) {
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .size(100.dp)
+                    .offset(x = 20.dp, y = (-20).dp)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(PhoniqAccent.copy(alpha = 0.22f), Color.Transparent),
+                        ),
+                    ),
+        )
         Column(Modifier.padding(16.dp)) {
-            Text(summary.monthLabel, style = MaterialTheme.typography.labelMedium)
             Text(
-                stringResource(R.string.money_spent_label, summary.spentLabel),
-                style = MaterialTheme.typography.headlineSmall,
+                summary.monthLabel,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = PhoniqTextSecondaryMock,
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+            Text(
+                summary.spentLabel,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.5).sp,
+                color = Color.White,
             )
             val budgetParts = summary.budgetCaption.split(" · ")
-            val budgetDisplay = buildAnnotatedString {
-                append(budgetParts.getOrElse(0) { summary.budgetCaption })
-                if (budgetParts.size > 1) {
-                    append(" · ")
-                    withStyle(SpanStyle(color = ColorCredit)) { append(budgetParts[1]) }
+            val budgetDisplay =
+                buildAnnotatedString {
+                    append(budgetParts.getOrElse(0) { summary.budgetCaption })
+                    if (budgetParts.size > 1) {
+                        append(" · ")
+                        withStyle(SpanStyle(color = ColorCredit)) { append(budgetParts[1]) }
+                    }
                 }
-            }
             Text(
                 budgetDisplay,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            LinearProgressIndicator(
-                progress = { summary.budgetProgress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = 10.dp),
+                fontSize = 12.sp,
+                color = PhoniqTextSecondaryMock,
+                modifier = Modifier.padding(top = 2.dp),
             )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     stringResource(R.string.money_savings_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary,
+                    fontSize = 11.sp,
+                    color = PhoniqTextSecondaryMock,
                 )
                 Text(
                     summary.savingsLabel,
-                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = ColorCredit,
                 )
             }
-            Text(
-                summary.currencyHint,
-                style = MaterialTheme.typography.labelSmall,
-                color = PhoniqOnSurfaceMuted,
+            BudgetGradientBar(
+                progress = summary.budgetProgress,
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
@@ -179,31 +208,49 @@ private fun SummaryHeroCard(summary: MoneySummary, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SpendingDonutCard(categories: List<CategorySpend>, centerAmount: String) {
+private fun BudgetGradientBar(progress: Float, modifier: Modifier = Modifier) {
+    val p = progress.coerceIn(0f, 1f)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(6.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(PhoniqBudgetBarTrack),
+    ) {
+        Box(
+            Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(p)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Brush.horizontalGradient(listOf(PhoniqAccent, PhoniqSecondary))),
+        )
+    }
+}
+
+@Composable
+private fun SpendingDonutRow(categories: List<CategorySpend>, centerAmount: String) {
     val colors = categories.map { categoryColor(it) }
     val fractions = categories.zip(colors).map { (cat, color) -> cat.fraction to color }
-    Card(
-        colors = CardDefaults.cardColors(containerColor = PhoniqSurface),
-        modifier = Modifier.fillMaxWidth(),
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DonutCanvas(
-                fractions = fractions,
-                centerAmount = centerAmount,
-                modifier = Modifier.size(150.dp),
-            )
-            Spacer(Modifier.width(16.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                categories.zip(colors).forEach { (cat, color) ->
-                    DonutLegendItem(
-                        color = color,
-                        label = cat.name,
-                        pct = "${(cat.fraction * 100).roundToInt()}%",
-                    )
-                }
+        DonutCanvas(
+            fractions = fractions,
+            centerAmount = centerAmount,
+            modifier = Modifier.size(110.dp),
+        )
+        Spacer(Modifier.width(16.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            categories.zip(colors).forEach { (cat, color) ->
+                DonutLegendItem(
+                    color = color,
+                    label = cat.name,
+                    pct = "${(cat.fraction * 100).roundToInt()}%",
+                )
             }
         }
     }
@@ -216,14 +263,14 @@ private fun DonutCanvas(
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(modifier = Modifier.matchParentSize()) {
-            val strokePx = 24.dp.toPx()
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val strokePx = (18f / 120f) * size.minDimension
             val inset = strokePx / 2f
             val arcSize = Size(size.minDimension - strokePx, size.minDimension - strokePx)
             val topLeft = Offset(inset, inset)
 
             drawArc(
-                color = Color(0xFF1A1A2E),
+                color = PhoniqDonutTrack,
                 startAngle = 0f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -255,8 +302,8 @@ private fun DonutCanvas(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "this month",
-                color = Color(0xFF888888),
+                text = stringResource(R.string.money_donut_caption),
+                color = Color(0xFF666666),
                 fontSize = 8.sp,
             )
         }
@@ -265,32 +312,42 @@ private fun DonutCanvas(
 
 @Composable
 private fun DonutLegendItem(color: Color, label: String, pct: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(color),
+            modifier =
+                Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(color),
         )
         Text(
             label,
-            style = MaterialTheme.typography.labelSmall,
+            fontSize = 11.sp,
+            color = PhoniqLegendMuted,
             modifier = Modifier.weight(1f),
         )
-        Text(pct, style = MaterialTheme.typography.labelSmall, color = PhoniqOnSurfaceMuted)
+        Text(
+            pct,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+        )
     }
 }
 
 @Composable
-private fun BudgetTrackerGrid(categories: List<CategorySpend>) {
+private fun BudgetTrackerGrid(categories: List<CategorySpend>, modifier: Modifier = Modifier) {
     val colors = categories.map { categoryColor(it) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        categories.zip(colors).chunked(2).forEach { pair ->
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        colors.zip(categories).chunked(2).forEach { pair ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                pair.forEach { (cat, color) ->
+                pair.forEach { (color, cat) ->
                     CategoryBudgetCard(cat, color, Modifier.weight(1f))
                 }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
@@ -301,76 +358,136 @@ private fun BudgetTrackerGrid(categories: List<CategorySpend>) {
 
 @Composable
 private fun CategoryBudgetCard(cat: CategorySpend, color: Color, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(14.dp)
     Card(
-        colors = CardDefaults.cardColors(containerColor = PhoniqSurface),
         modifier = modifier,
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = PhoniqSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, PhoniqBorder),
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text(cat.emoji, style = MaterialTheme.typography.titleMedium)
+            Text(cat.emoji, fontSize = 20.sp)
+            Spacer(Modifier.height(6.dp))
             Text(
                 cat.name,
-                style = MaterialTheme.typography.labelSmall,
-                color = PhoniqOnSurfaceMuted,
+                fontSize = 11.sp,
+                color = PhoniqTextSecondaryMock,
                 maxLines = 1,
+                modifier = Modifier.padding(bottom = 2.dp),
             )
-            Text(cat.amountLabel, style = MaterialTheme.typography.titleSmall)
-            Text(cat.budgetLabel, style = MaterialTheme.typography.labelSmall, color = PhoniqOnSurfaceMuted)
+            Text(
+                cat.amountLabel,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+            )
+            Text(
+                cat.budgetLabel,
+                fontSize = 10.sp,
+                color = PhoniqTextSubtle,
+            )
             Spacer(Modifier.height(6.dp))
             LinearProgressIndicator(
                 progress = { cat.fraction.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(4.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(3.dp)),
                 color = color,
+                trackColor = PhoniqCategoryBarTrack,
             )
         }
     }
 }
 
 @Composable
-private fun TransactionRow(txn: RecentTransaction) {
+private fun RecentTransactionsHeader(onSeeAll: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            stringResource(R.string.money_txn_title),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TxnTitleColor,
+        )
+        Text(
+            stringResource(R.string.money_txn_see_all),
+            fontSize = 11.sp,
+            color = PhoniqAccent,
+            modifier = Modifier.clickable(onClick = onSeeAll),
+        )
+    }
+}
+
+@Composable
+private fun TransactionRow(txn: RecentTransaction) {
+    val iconShape = RoundedCornerShape(12.dp)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(txnBgColor(txn.categoryTag)),
+            modifier =
+                Modifier
+                    .size(38.dp)
+                    .clip(iconShape)
+                    .background(txnBgColor(txn.categoryTag)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(txn.emoji, style = MaterialTheme.typography.bodyMedium)
+            Text(txn.emoji, fontSize = 18.sp)
         }
         Column(Modifier.weight(1f)) {
-            Text(txn.merchant, style = MaterialTheme.typography.bodyMedium)
-            Text(txn.dateLine, style = MaterialTheme.typography.labelSmall, color = PhoniqOnSurfaceMuted)
+            Text(
+                txn.merchant,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                txn.dateLine,
+                fontSize = 11.sp,
+                color = Color(0xFF666666),
+                modifier = Modifier.padding(top = 1.dp),
+            )
         }
         Text(
             txn.amountLabel,
-            style = MaterialTheme.typography.titleSmall,
-            color = if (txn.isCredit) ColorCredit else MaterialTheme.colorScheme.onSurface,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (txn.isCredit) ColorCredit else PhoniqDebit,
         )
     }
 }
 
 private fun categoryColor(row: CategorySpend): Color =
     when (row.name) {
-        "Food & Dining"     -> ColorFood
-        "Shopping"          -> ColorShopping
+        "Food & Dining" -> ColorFood
+        "Shopping" -> ColorShopping
         "Bills & Utilities" -> ColorBills
-        "Transport"         -> ColorTransport
-        else                -> ColorOthers
+        "Transport" -> ColorTransport
+        else -> ColorOthers
     }
 
 private fun txnBgColor(tag: String): Color =
     when (tag) {
-        "food"      -> Color(0xFF6C63FF).copy(alpha = 0.15f)
-        "salary"    -> Color(0xFF00D4AA).copy(alpha = 0.15f)
-        "shopping"  -> Color(0xFFF5A623).copy(alpha = 0.15f)
-        "bills"     -> Color(0xFFFF6B6B).copy(alpha = 0.15f)
+        "food" -> Color(0xFF6C63FF).copy(alpha = 0.15f)
+        "salary" -> Color(0xFF00D4AA).copy(alpha = 0.15f)
+        "shopping" -> Color(0xFFF5A623).copy(alpha = 0.15f)
+        "bills" -> Color(0xFFFF6B6B).copy(alpha = 0.15f)
         "transport" -> Color(0xFF00D4AA).copy(alpha = 0.15f)
-        else        -> Color(0xFF888888).copy(alpha = 0.15f)
+        else -> Color(0xFF888888).copy(alpha = 0.15f)
     }

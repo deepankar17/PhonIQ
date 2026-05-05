@@ -1,42 +1,45 @@
-Phase 1 scaffold: Room DB, SMS parser engine, repositories, ViewModels
+Phase 1: permission gate, ViewModel wiring, dialpad, in-call screen, SMS receiver
 
-Build system:
-- Add KSP 2.1.10-1.0.31 + Room 2.7.1 + ViewModel 2.10.0 + coroutines to Gradle catalog
-- Hilt skipped (AGP 9.2 incompatibility with BaseExtension API; tracked for Phase 2)
-- android.disallowKotlinSourceSets=false for KSP source registration under built-in Kotlin
-- Application container pattern (lazy singletons in PhonIQApp) replaces DI framework
+Permission flow:
+- PermissionScreen: full-screen rationale + Grant button (READ_SMS, READ_CALL_LOG,
+  READ_CONTACTS, READ_PHONE_STATE, CALL_PHONE + optional RECORD_AUDIO, POST_NOTIFICATIONS)
+- PermissionBanner: compact inline banner when user skips (shows above tab bar)
+- allCorePermissionsGranted() check on every app start
+- PhonIQRoot: permission gate → shell flow with rememberSaveable state
 
-Permissions: READ/WRITE_SMS, READ/WRITE_CONTACTS, READ/WRITE_CALL_LOG,
-  RECORD_AUDIO, READ_PHONE_STATE, ANSWER_PHONE_CALLS, FOREGROUND_SERVICE,
-  POST_NOTIFICATIONS added to AndroidManifest.xml
+ViewModel wiring in MainActivity:
+- ViewModels created via Factory from PhonIQApp container (smsRepository, callLogRepository,
+  contactsRepository, transactionRepository)
+- LaunchedEffect triggers syncFromDevice() when permissions become granted
+- Real Room data flows via collectAsState(); falls back to SampleData when DB is empty
+- MessagesScreen + PhoneScreen signatures updated from SnapshotStateList to List<T>
 
-Room database (v1 — 9 tables, exportSchema=false):
-  contacts, call_log, sms_messages, transactions, accounts,
-  budgets, spam_numbers, categories, otp_log
-- Entities with FK constraints, indices, and typed enums (type strings)
-- DAOs: ContactDao, CallLogDao, SmsDao, TransactionDao, AccountDao,
-  BudgetDao, SpamNumberDao, OtpLogDao — all Flow-based
-- PhonIQDatabase (abstract RoomDatabase)
+Entity mappers (data/mapper/EntityMappers.kt):
+- CallLogEntity.toRecentCall(): type→CallDirection, relative timestamp, duration caption,
+  international number detection, spam/blocked flags
+- SmsMessageEntity.toMessageThread(): category→Set<MessageThreadCategory>, pill labels,
+  relative timestamp, unread flag
+- List<SmsMessageEntity>.toMessageThreads(): group by threadId, latest-message snippet,
+  sort by timestamp
 
-SMS parser engine (100% offline, no INTERNET):
-- SmsParser: classifies sender+body into OTP/TRANSACTION/SPAM/PROMO/
-  BILL/DELIVERY/TRAVEL/PERSONAL/OTHER
-- OTP extraction with 5 regex patterns + TTL inference (min/hr/sec)
-- Transaction extraction: INR amount regex, debit/credit keyword sets,
-  merchant pattern matching, account last4 extraction
-- Category inference: 10 categories from keyword sets
-  (FOOD/SHOPPING/TRANSPORT/BILLS/EMI/SALARY/INVESTMENT/HEALTH/ENTERTAINMENT/ATM)
+Dialpad (DialpadSheet.kt):
+- Full 3x4 key grid with digit + letter sub-labels
+- Animated call button (green when digits entered, disabled when empty)
+- Backspace support (long-clickable display row)
+- Launches ACTION_CALL intent; CALL_PHONE permission added to manifest
+- Wired to PhoneScreen FAB on Recent tab (replaces toast stub)
 
-Repositories (plain Kotlin, not Hilt-injected):
-- SmsRepository: observeAll/OTPs/Transactions, syncDeviceSms (ContentProvider),
-  markAllRead, search
-- CallLogRepository: observeAll, syncDeviceCallLog, markSpam/unmarkSpam, clearAll
-- ContactsRepository: observeAll, search, syncDeviceContacts (ContentProvider)
-- TransactionRepository: period queries, totalSpent, budget CRUD, currentMonthEpochRange
+InCallScreen (InCallScreen.kt):
+- Pulsing circular avatar with initials
+- Live call timer via LaunchedEffect coroutine (h:mm:ss / m:ss)
+- Mute / Speaker / Keypad in-call action buttons with active-state tint
+- Red end-call button (80dp circle)
+- Keypad sub-view (switches DialpadContent inline)
 
-ViewModels (with nested Factory for ViewModelProvider):
-- MessagesViewModel: unreadCount, allMessages, otpMessages, searchResults (debounced)
-- PhoneViewModel: allCalls, allContacts, filteredContacts, syncFromDevice, markSpam
-- MoneyViewModel: currentMonthTransactions, totalSpentThisMonth, budgets
+SMS BroadcastReceiver (SmsReceiver.kt):
+- Registered for android.provider.Telephony.SMS_RECEIVED, priority 999
+- Parses each incoming PDU through SmsParser (OTP/TXN/SPAM/…)
+- Inserts SmsMessageEntity into Room on IO dispatcher
+- Registered in AndroidManifest with BROADCAST_SMS permission gate
 
-assembleDebug: BUILD SUCCESSFUL (1 pre-existing ReceiptLong deprecation warning only)
+assembleDebug: BUILD SUCCESSFUL (deprecation warnings only)
