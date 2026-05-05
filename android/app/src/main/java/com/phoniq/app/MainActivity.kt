@@ -13,13 +13,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -48,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -72,6 +72,7 @@ import com.phoniq.app.ui.permission.OPTIONAL_PERMISSIONS
 import com.phoniq.app.ui.permission.PermissionBanner
 import com.phoniq.app.ui.permission.PermissionScreen
 import com.phoniq.app.ui.permission.allCorePermissionsGranted
+import com.phoniq.app.ui.phone.AfterCallSheet
 import com.phoniq.app.ui.phone.InCallScreen
 import com.phoniq.app.ui.phone.PhoneScreen
 import com.phoniq.app.ui.phone.PhoneViewModel
@@ -178,6 +179,7 @@ private sealed class MainTab(val route: String, val labelRes: Int) {
 // Main shell
 // ---------------------------------------------------------------------------
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PhonIQShell(
     permissionsGranted: Boolean,
@@ -340,6 +342,31 @@ private fun PhonIQShell(
 
         // In-call overlay — slides up over everything when a call is active/ringing
         val activeCall by CallStateRepository.callInfo.collectAsState()
+
+        // Track last call for the after-call sheet
+        var lastCall by remember { mutableStateOf<com.phoniq.app.telecom.ActiveCallInfo?>(null) }
+        var callDurationSecs by remember { mutableStateOf(0) }
+        var showAfterCallSheet by remember { mutableStateOf(false) }
+
+        // Observe call state transitions
+        LaunchedEffect(activeCall?.state) {
+            when (activeCall?.state) {
+                CallState.ACTIVE -> {
+                    // Timer while call is active
+                    callDurationSecs = 0
+                    while (CallStateRepository.callInfo.value?.state == CallState.ACTIVE) {
+                        kotlinx.coroutines.delay(1_000)
+                        callDurationSecs++
+                    }
+                }
+                CallState.DISCONNECTED -> {
+                    lastCall = activeCall
+                    showAfterCallSheet = true
+                }
+                else -> Unit
+            }
+        }
+
         AnimatedVisibility(
             visible = activeCall != null && activeCall!!.state != CallState.DISCONNECTED,
             enter = slideInVertically { it } + fadeIn(),
@@ -352,6 +379,19 @@ private fun PhonIQShell(
                     onHangUp = { CallStateRepository.hangUp() },
                 )
             }
+        }
+
+        // After-call sheet
+        if (showAfterCallSheet && lastCall != null) {
+            val mins = callDurationSecs / 60
+            val secs = callDurationSecs % 60
+            val dur = if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
+            AfterCallSheet(
+                callerName = lastCall!!.callerName,
+                callerNumber = lastCall!!.callerNumber,
+                durationLabel = dur,
+                onDismiss = { showAfterCallSheet = false },
+            )
         }
 
         if (showSearch) GlobalSearchOverlay(onDismiss = { showSearch = false })

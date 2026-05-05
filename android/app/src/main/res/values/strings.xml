@@ -33,6 +33,10 @@
     <string name="header_search_placeholder_messages">Search messages</string>
     <string name="header_search_placeholder_money">Search transactions</string>
     <string name="search_overlay_input_hint">Search calls, SMS, contacts…</string>
+    <string name="search_overlay_empty">No results</string>
+    <string name="search_section_calls">Recent calls</string>
+    <string name="search_section_messages">Messages</string>
+    <string name="search_section_money">Money</string>
     <string name="cd_compose_new_message">New message</string>
     <string name="toast_compose_new_message">Composer + SMS role — prototype only.</string>
     <string name="msg_list_typing_hint">typing…</string>
