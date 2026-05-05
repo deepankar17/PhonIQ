@@ -8,11 +8,12 @@ import android.telecom.InCallService
  * when PhonIQ is set as the default phone app.
  *
  * Updates [CallStateRepository] which the Compose UI observes via Flow.
+ * Also starts/stops [CallRecorder] on call state transitions.
  */
 class PhonIQInCallService : InCallService() {
 
-    // Callback per active call — keep references to unregister on removal
     private val callbacks = mutableMapOf<Call, Call.Callback>()
+    private val recorder by lazy { CallRecorder(applicationContext) }
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
@@ -20,6 +21,14 @@ class PhonIQInCallService : InCallService() {
 
         val cb = object : Call.Callback() {
             override fun onStateChanged(call: Call, state: Int) {
+                val mapped = mapState(state)
+                if (mapped == CallState.ACTIVE && !recorder.isRecording) {
+                    recorder.startRecording()
+                }
+                if (mapped == CallState.DISCONNECTED && recorder.isRecording) {
+                    val path = recorder.stopRecording()
+                    CallStateRepository.setLastRecordingPath(path)
+                }
                 pushState(call)
             }
             override fun onDetailsChanged(call: Call, details: Call.Details) {
@@ -33,7 +42,10 @@ class PhonIQInCallService : InCallService() {
     override fun onCallRemoved(call: Call) {
         super.onCallRemoved(call)
         callbacks.remove(call)?.let { call.unregisterCallback(it) }
-        // If no more calls, clear state
+        if (recorder.isRecording) {
+            val path = recorder.stopRecording()
+            CallStateRepository.setLastRecordingPath(path)
+        }
         if (calls.isEmpty()) CallStateRepository.update(null)
     }
 
@@ -44,15 +56,17 @@ class PhonIQInCallService : InCallService() {
             ?: call.details.gatewayInfo?.originalAddress?.schemeSpecificPart
             ?: "Unknown"
         val name = call.details.callerDisplayName?.takeIf { it.isNotBlank() } ?: number
-        val state = when (call.state) {
-            Call.STATE_RINGING -> CallState.RINGING
-            Call.STATE_DIALING, Call.STATE_CONNECTING -> CallState.DIALING
-            Call.STATE_ACTIVE -> CallState.ACTIVE
-            Call.STATE_HOLDING -> CallState.HOLDING
-            else -> CallState.DISCONNECTED
-        }
+        val state = mapState(call.state)
         CallStateRepository.update(
             ActiveCallInfo(callerNumber = number, callerName = name, state = state, call = call)
         )
+    }
+
+    private fun mapState(state: Int): CallState = when (state) {
+        Call.STATE_RINGING -> CallState.RINGING
+        Call.STATE_DIALING, Call.STATE_CONNECTING -> CallState.DIALING
+        Call.STATE_ACTIVE -> CallState.ACTIVE
+        Call.STATE_HOLDING -> CallState.HOLDING
+        else -> CallState.DISCONNECTED
     }
 }

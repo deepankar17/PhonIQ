@@ -453,6 +453,8 @@ private fun DataDeviceBody() {
         SettingsDivider()
         SettingsActionItem(label = "Export SMS transactions (CSV)", sub = "Save parsed transactions to Downloads")
         SettingsDivider()
+        SettingsActionItem(label = "Export transactions (PDF)", sub = "Summary + full list as a PDF in Downloads")
+        SettingsDivider()
         SettingsActionItem(label = "Export call log (CSV)", sub = "Save call history to Downloads")
     }
 

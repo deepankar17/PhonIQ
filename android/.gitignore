@@ -1,4 +1,5 @@
 /.gradle/
+/.gradle-agent/
 /build/
 **/build/
 /.idea/
@@ -10,3 +11,4 @@ captures/
 *.aab
 *.ap_
 *.dex
+C:/Temp/phoniq-cache/

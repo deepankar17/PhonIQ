@@ -8,6 +8,10 @@ import com.phoniq.app.data.repository.ContactsRepository
 import com.phoniq.app.data.repository.SmsRepository
 import com.phoniq.app.data.repository.TransactionRepository
 import com.phoniq.app.domain.sms.SmsParser
+import com.phoniq.app.domain.spam.SpamCorpus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class PhonIQApp : Application() {
 
@@ -15,6 +19,14 @@ class PhonIQApp : Application() {
         Room.databaseBuilder(this, PhonIQDatabase::class.java, "phoniq.db")
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        // Seed spam corpus once on first launch (no-op if already seeded)
+        CoroutineScope(Dispatchers.IO).launch {
+            SpamCorpus.seed(database.spamNumberDao())
+        }
     }
 
     val smsParser: SmsParser by lazy { SmsParser() }

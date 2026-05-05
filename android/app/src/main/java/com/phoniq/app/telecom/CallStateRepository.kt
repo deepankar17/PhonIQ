@@ -18,11 +18,22 @@ data class ActiveCallInfo(
 /**
  * Process-singleton that bridges [PhonIQInCallService] (system callbacks)
  * with the Compose UI layer (collects via [callInfo] Flow).
+ *
+ * Also exposes the path of the most recent encrypted call recording so the
+ * AfterCallSheet can offer playback.
  */
 object CallStateRepository {
 
     private val _callInfo = MutableStateFlow<ActiveCallInfo?>(null)
     val callInfo: StateFlow<ActiveCallInfo?> = _callInfo.asStateFlow()
+
+    /** Path to the last encrypted recording, or null if none. */
+    private val _lastRecordingPath = MutableStateFlow<String?>(null)
+    val lastRecordingPath: StateFlow<String?> = _lastRecordingPath.asStateFlow()
+
+    fun setLastRecordingPath(path: String?) {
+        _lastRecordingPath.value = path
+    }
 
     fun update(info: ActiveCallInfo?) {
         _callInfo.value = info

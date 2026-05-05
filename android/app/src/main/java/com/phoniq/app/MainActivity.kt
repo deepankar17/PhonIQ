@@ -384,11 +384,13 @@ private fun PhonIQShell(
                     callerName = info.callerName,
                     callerNumber = info.callerNumber,
                     onHangUp = { CallStateRepository.hangUp() },
+                    onUserMessage = { showMessage(it) },
                 )
             }
         }
 
         // After-call sheet
+        val lastRecordingPath by CallStateRepository.lastRecordingPath.collectAsState()
         if (showAfterCallSheet && lastCall != null) {
             val mins = callDurationSecs / 60
             val secs = callDurationSecs % 60
@@ -397,6 +399,7 @@ private fun PhonIQShell(
                 callerName = lastCall!!.callerName,
                 callerNumber = lastCall!!.callerNumber,
                 durationLabel = dur,
+                recordingPath = lastRecordingPath,
                 onDismiss = { showAfterCallSheet = false },
             )
         }

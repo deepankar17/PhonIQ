@@ -99,6 +99,32 @@
     <string name="toast_contact_policy">Per-contact policies — wire next.</string>
     <string name="toast_contact_block">Number blocked (prototype).</string>
 
+    <string name="permission_title">PhonIQ needs access</string>
+    <string name="permission_subtitle">To show your real calls, messages, and financial data — all processed offline, on your device.</string>
+    <string name="permission_card_sms_title">SMS &amp; messages</string>
+    <string name="permission_card_sms_body">Read messages to detect OTPs, transactions, and bills. Never uploaded.</string>
+    <string name="permission_card_call_title">Call log &amp; contacts</string>
+    <string name="permission_card_call_body">Show your real call history and match sender names to contacts.</string>
+    <string name="permission_card_phone_title">Phone state</string>
+    <string name="permission_card_phone_body">Required to act as a dialer — detect active calls and answer/reject.</string>
+    <string name="permission_grant">Grant permissions</string>
+    <string name="permission_demo_skip">Continue with demo data</string>
+    <string name="permission_banner_text">Showing demo data · Grant permissions to sync your real data</string>
+    <string name="permission_banner_grant">Grant</string>
+
+    <string name="incall_status_in_call">In call</string>
+    <string name="incall_mute">Mute</string>
+    <string name="incall_unmute">Unmute</string>
+    <string name="incall_keypad">Keypad</string>
+    <string name="incall_speaker">Speaker</string>
+    <string name="incall_hold">Hold</string>
+    <string name="incall_record">Record</string>
+    <string name="incall_sms">SMS</string>
+    <string name="cd_incall_end">End call</string>
+    <string name="toast_incall_sms">SMS from call (prototype).</string>
+    <string name="toast_incall_hold">Hold toggled (prototype).</string>
+    <string name="toast_incall_record">Recording toggled (prototype).</string>
+
     <string name="msg_filter_all">All</string>
     <string name="msg_filter_unread">Unread</string>
     <string name="msg_filter_personal">Personal</string>

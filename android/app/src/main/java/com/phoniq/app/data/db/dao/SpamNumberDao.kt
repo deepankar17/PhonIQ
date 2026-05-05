@@ -24,4 +24,10 @@ interface SpamNumberDao {
 
     @Query("DELETE FROM spam_numbers WHERE number = :number")
     suspend fun deleteByNumber(number: String)
+
+    @Query("SELECT COUNT(*) FROM spam_numbers")
+    suspend fun countAll(): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(list: List<SpamNumberEntity>)
 }

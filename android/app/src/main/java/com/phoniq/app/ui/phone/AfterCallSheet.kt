@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonSearch
@@ -52,11 +53,22 @@ fun AfterCallSheet(
     callerName: String,
     callerNumber: String,
     durationLabel: String,
+    recordingPath: String? = null,
     onDismiss: () -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
 ) {
     var note by remember { mutableStateOf("") }
     var noteSaved by remember { mutableStateOf(false) }
+    var showPlayback by remember { mutableStateOf(false) }
+
+    if (showPlayback && recordingPath != null) {
+        RecordingPlaybackSheet(
+            encPath = recordingPath,
+            callerLabel = "$callerName · $durationLabel",
+            onDismiss = { showPlayback = false },
+        )
+        return
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -89,6 +101,9 @@ fun AfterCallSheet(
                 AfterCallAction(Icons.Default.Star, "Favourite", onDismiss)
                 AfterCallAction(Icons.Default.PersonSearch, "Who is this?", onDismiss)
                 AfterCallAction(Icons.Default.Block, "Block", onDismiss)
+                if (recordingPath != null) {
+                    AfterCallAction(Icons.Default.GraphicEq, "Play Recording") { showPlayback = true }
+                }
             }
 
             Spacer(Modifier.height(16.dp))

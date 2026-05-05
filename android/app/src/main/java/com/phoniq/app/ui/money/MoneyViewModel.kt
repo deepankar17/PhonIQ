@@ -166,6 +166,21 @@ class MoneyViewModel(
         }
     }
 
+    fun exportTransactionsPdf(onResult: (String) -> Unit) {
+        if (appContext == null) return
+        viewModelScope.launch {
+            val txns = transactionRepository.allTransactions.first()
+            val monthLabel = java.time.LocalDate.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy"))
+            com.phoniq.app.export.PdfExporter.exportTransactions(
+                context = appContext,
+                transactions = txns,
+                monthLabel = monthLabel,
+                onResult = onResult,
+            )
+        }
+    }
+
     fun setBudget(category: String, limitRupees: Double) {
         viewModelScope.launch {
             transactionRepository.setBudget(category, limitRupees)
