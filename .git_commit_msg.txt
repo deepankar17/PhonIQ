@@ -1,39 +1,42 @@
-Android: full mockup shell parity (p1-p19) — Track B, Money, OTP, Settings, Contacts
+Phase 1 scaffold: Room DB, SMS parser engine, repositories, ViewModels
 
-Track B — Messages thread overlay:
-- ConversationBubble sealed class (text/OTP/txn/reaction/link/voice/typing/system)
-- ThreadConversationSamples keyed by thread id (m1, m_rahul, m_phonepe, m_hdfc, m_amazon, m_swiggy, m_flip_log, m3/VFS)
-- ThreadDetailOverlay: full-screen WhatsApp-style thread (RCS/SMS bars, day dividers,
-  bubble variants, composer strip, OTP copy via Toast, View in Money snackbar wire)
-- MessagesScreen / MainActivity: onThreadAction callback wire
+Build system:
+- Add KSP 2.1.10-1.0.31 + Room 2.7.1 + ViewModel 2.10.0 + coroutines to Gradle catalog
+- Hilt skipped (AGP 9.2 incompatibility with BaseExtension API; tracked for Phase 2)
+- android.disallowKotlinSourceSets=false for KSP source registration under built-in Kotlin
+- Application container pattern (lazy singletons in PhonIQApp) replaces DI framework
 
-OTP countdown in message list (p17):
-- MessageThread.otpCode + otpExpiresSeconds fields
-- OtpListStrip composable: live LaunchedEffect countdown, auto-expiry, Copy button
-- Color-coded pillColors(): OTP=teal, TXN=amber, BILL=red, Promo=purple
+Permissions: READ/WRITE_SMS, READ/WRITE_CONTACTS, READ/WRITE_CALL_LOG,
+  RECORD_AUDIO, READ_PHONE_STATE, ANSWER_PHONE_CALLS, FOREGROUND_SERVICE,
+  POST_NOTIFICATIONS added to AndroidManifest.xml
 
-Money screen (p13) — full mockup parity:
-- MoneySummary.savingsLabel replacing incomeLabel; CategorySpend adds emoji + budgetLabel
-- RecentTransaction model + SampleData aligned to mockup values (April 2026, 5 categories)
-- SpendingDonutCard: 5-color ring, center text via Box overlay, legend with dots + pct
-- BudgetTrackerGrid: 2x2 grid with emoji, colored mini-bars per category
-- Recent Transactions list: emoji-circle icons, debit red / credit teal
+Room database (v1 — 9 tables, exportSchema=false):
+  contacts, call_log, sms_messages, transactions, accounts,
+  budgets, spam_numbers, categories, otp_log
+- Entities with FK constraints, indices, and typed enums (type strings)
+- DAOs: ContactDao, CallLogDao, SmsDao, TransactionDao, AccountDao,
+  BudgetDao, SpamNumberDao, OtpLogDao — all Flow-based
+- PhonIQDatabase (abstract RoomDatabase)
 
-Settings personalization (p12):
-- Full PersonalizationBody: accent swatches (10 colors), theme/dialpad/font/size chip rows
-- 13 toggles across Display, Call Screen, Messages, Money Manager, Privacy & Security
-- Root pane: "General" group label + separate "Widgets & shortcuts" row
+SMS parser engine (100% offline, no INTERNET):
+- SmsParser: classifies sender+body into OTP/TRANSACTION/SPAM/PROMO/
+  BILL/DELIVERY/TRAVEL/PERSONAL/OTHER
+- OTP extraction with 5 regex patterns + TTL inference (min/hr/sec)
+- Transaction extraction: INR amount regex, debit/credit keyword sets,
+  merchant pattern matching, account last4 extraction
+- Category inference: 10 categories from keyword sets
+  (FOOD/SHOPPING/TRANSPORT/BILLS/EMI/SALARY/INVESTMENT/HEALTH/ENTERTAINMENT/ATM)
 
-Proto-wire overlays (p15/p16):
-- ProtoWireOverlay refactored from title+bodyRes strings to action: ShellMenuAction
-- CommInsights: stat rows (Voice time, Top contact, Missed trend) + chart placeholder
-- AfterCall: four action rows + footer note + Got it CTA
-- WhoIsThis: three context rows + Open thread CTA
-- MainActivity: wireResources (Pair<Int,Int>?) replaced by wireAction: ShellMenuAction?
+Repositories (plain Kotlin, not Hilt-injected):
+- SmsRepository: observeAll/OTPs/Transactions, syncDeviceSms (ContentProvider),
+  markAllRead, search
+- CallLogRepository: observeAll, syncDeviceCallLog, markSpam/unmarkSpam, clearAll
+- ContactsRepository: observeAll, search, syncDeviceContacts (ContentProvider)
+- TransactionRepository: period queries, totalSpent, budget CRUD, currentMonthEpochRange
 
-Contacts panel (p18):
-- Rounded OutlinedTextField search bar with live contact filtering
-- "All Contacts" section label above filtered list
-- BlockedSection at bottom: Block icon, "3 blocked", manage icon button
+ViewModels (with nested Factory for ViewModelProvider):
+- MessagesViewModel: unreadCount, allMessages, otpMessages, searchResults (debounced)
+- PhoneViewModel: allCalls, allContacts, filteredContacts, syncFromDevice, markSpam
+- MoneyViewModel: currentMonthTransactions, totalSpentThisMonth, budgets
 
-Build: assembleDebug BUILD SUCCESSFUL; only non-blocking ReceiptLong deprecation warning
+assembleDebug: BUILD SUCCESSFUL (1 pre-existing ReceiptLong deprecation warning only)
