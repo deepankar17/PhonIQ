@@ -24,6 +24,11 @@ data class RecentCall(
     val isSpam: Boolean = false,
     val isBlocked: Boolean = false,
     val isInternational: Boolean = false,
+    /**
+     * Second line under the name, matching mockup `call-number` (e.g. `Incoming · 3m`, `Missed (2)`,
+     * `WhatsApp · 7m`). When null, the UI synthesizes a short line from [direction] + [channel].
+     */
+    val metaCaption: String? = null,
 )
 
 enum class RecentCallFilter {

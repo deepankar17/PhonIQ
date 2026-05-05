@@ -8,7 +8,7 @@ navigationCompose = "2.9.8"
 composeBom = "2026.04.01"
 
 # minSdk 35 (Android 15+); compile/target 36 for AGP 9.2 (supported API band).
-compileSdk = "36"
+compileSdk = "37"
 minSdk = "35"
 targetSdk = "36"
 
@@ -23,7 +23,7 @@ compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version = "1.11.0" }
 compose-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 
 [plugins]

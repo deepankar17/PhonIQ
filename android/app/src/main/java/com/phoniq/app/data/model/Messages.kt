@@ -6,6 +6,9 @@ enum class MessageThreadCategory {
     Personal,
     Transaction,
     Otp,
+    Bill,
+    Delivery,
+    Travel,
     Spam,
 }
 
@@ -17,6 +20,20 @@ data class MessageThread(
     val unread: Boolean,
     val categories: Set<MessageThreadCategory>,
     val subtitleBadge: String? = null,
+    /** Read-only mock for thread header / "who is this" style fusion. */
+    val lastCallSummary: String? = null,
+    val localNote: String? = null,
+    /** Address shown under thread title (+91…, VM-HDFCBK, BH-PhonePe, …). */
+    val peerAddress: String? = null,
+    /** Small pills after the snippet preview (OTP, TXN, Due, …) — mockup `wa-category-pill`. */
+    val rowPills: List<String> = emptyList(),
+    val showRcsBadge: Boolean = false,
+    /** List-row "typing…" line like mockup Rahul row. */
+    val listTypingHint: Boolean = false,
+    /** Extracted OTP code for list-row countdown+copy strip (null = no strip). */
+    val otpCode: String? = null,
+    /** Initial seconds for the OTP countdown chip (default 10 min). */
+    val otpExpiresSeconds: Int = 600,
 )
 
 fun MessageThread.matches(category: MessageThreadCategory): Boolean =

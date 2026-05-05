@@ -1,5 +1,6 @@
 package com.phoniq.app.ui.phone
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -17,8 +20,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dialpad
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.automirrored.filled.Message
@@ -26,20 +31,26 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -63,14 +74,17 @@ private enum class PhoneSection {
 }
 
 @Composable
-fun PhoneScreen(onUserMessage: (String) -> Unit) {
+fun PhoneScreen(
+    recents: SnapshotStateList<RecentCall>,
+    onUserMessage: (String) -> Unit,
+) {
     val context = LocalContext.current
     var section by remember { mutableStateOf(PhoneSection.Recent) }
     var recentFilter by remember { mutableStateOf(RecentCallFilter.All) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            TabRow(selectedTabIndex = section.ordinal) {
+            SecondaryTabRow(selectedTabIndex = section.ordinal) {
                 Tab(
                     selected = section == PhoneSection.Recent,
                     onClick = { section = PhoneSection.Recent },
@@ -90,6 +104,7 @@ fun PhoneScreen(onUserMessage: (String) -> Unit) {
             when (section) {
                 PhoneSection.Recent ->
                     RecentCallsPanel(
+                        recents = recents,
                         filter = recentFilter,
                         onFilterChange = { recentFilter = it },
                         onUserMessage = onUserMessage,
@@ -133,19 +148,26 @@ fun PhoneScreen(onUserMessage: (String) -> Unit) {
 
 @Composable
 private fun RecentCallsPanel(
+    recents: SnapshotStateList<RecentCall>,
     filter: RecentCallFilter,
     onFilterChange: (RecentCallFilter) -> Unit,
     onUserMessage: (String) -> Unit,
 ) {
     val context = LocalContext.current
     val scroll = rememberScrollState()
-    val filtered = remember(filter) { SampleData.recentCalls.filter { it.matches(filter) } }
+    val filtered = recents.filter { it.matches(filter) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         QuickCallStrip(
             onQuickCall = { entry: QuickCallEntry ->
                 onUserMessage(context.getString(R.string.toast_quick_call, entry.name))
             },
+        )
+        Text(
+            text = stringResource(R.string.phone_section_recent_calls),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
         Row(
             modifier =
@@ -178,10 +200,20 @@ private fun RecentCallsPanel(
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(filtered, key = { it.id }) { call ->
-                    RecentCallRow(call = call, onUserMessage = onUserMessage)
+                itemsIndexed(
+                    filtered,
+                    key = { _, call -> call.id },
+                ) { index, call ->
+                    Column(Modifier.fillMaxWidth()) {
+                        if (index > 0) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                            )
+                        }
+                        RecentCallRow(call = call, onUserMessage = onUserMessage)
+                    }
                 }
             }
         }
@@ -222,10 +254,27 @@ private fun RecentCallRow(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(call.contactName, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        call.numberOrLabel,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary,
+                        text = call.metaCaption ?: synthesizedMetaCaption(call),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (call.metaCaption != null &&
+                        call.numberOrLabel.isNotBlank() &&
+                        call.numberOrLabel != call.contactName
+                    ) {
+                        Text(
+                            call.numberOrLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    } else if (call.metaCaption == null) {
+                        Text(
+                            call.numberOrLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.padding(top = 6.dp),
@@ -249,7 +298,7 @@ private fun RecentCallRow(
                                 label = { Text(stringResource(R.string.chip_blocked)) },
                             )
                         }
-                        if (call.missedStreak > 1) {
+                        if (call.missedStreak > 1 && call.metaCaption?.contains("Missed (") != true) {
                             AssistChip(
                                 onClick = {},
                                 enabled = false,
@@ -317,6 +366,19 @@ private fun RecentCallRow(
 }
 
 @Composable
+private fun synthesizedMetaCaption(call: RecentCall): String {
+    val dir = directionLabel(call.direction)
+    val channel =
+        when (call.channel) {
+            CallChannel.Pstn -> stringResource(R.string.recent_channel_phone)
+            CallChannel.WhatsAppVoice,
+            CallChannel.WhatsAppVideo,
+            -> stringResource(R.string.recent_channel_whatsapp)
+        }
+    return stringResource(R.string.recent_meta_synth, dir, channel)
+}
+
+@Composable
 private fun directionLabel(direction: CallDirection): String =
     when (direction) {
         CallDirection.Incoming -> stringResource(R.string.direction_incoming)
@@ -327,14 +389,85 @@ private fun directionLabel(direction: CallDirection): String =
 
 @Composable
 private fun ContactsPanel(onUserMessage: (String) -> Unit) {
+    val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(query) {
+        if (query.isBlank()) SampleData.contacts
+        else SampleData.contacts.filter {
+            it.name.contains(query, ignoreCase = true) ||
+                it.subtitle.contains(query, ignoreCase = true)
+        }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 88.dp),
     ) {
-        items(SampleData.contacts, key = { it.id }) { row ->
+        item {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text(stringResource(R.string.contacts_search_placeholder)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                ),
+            )
+        }
+        if (filtered.isNotEmpty()) {
+            item {
+                Text(
+                    stringResource(R.string.contacts_all_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 2.dp),
+                )
+            }
+        }
+        items(filtered, key = { it.id }) { row ->
             ContactRowItem(row = row, onUserMessage = onUserMessage)
         }
+        item {
+            BlockedSection(onManage = {
+                onUserMessage(context.getString(R.string.contacts_blocked_manage_toast))
+            })
+        }
     }
+}
+
+@Composable
+private fun BlockedSection(onManage: () -> Unit) {
+    val context = LocalContext.current
+    HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+    ListItem(
+        leadingContent = {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.Block,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        },
+        headlineContent = { Text(stringResource(R.string.contacts_blocked_label)) },
+        supportingContent = { Text(stringResource(R.string.contacts_blocked_sub)) },
+        trailingContent = {
+            IconButton(onClick = onManage) {
+                Icon(Icons.Default.Block, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            }
+        },
+    )
 }
 
 @Composable

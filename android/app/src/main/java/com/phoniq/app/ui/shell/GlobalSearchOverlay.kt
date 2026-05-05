@@ -71,7 +71,7 @@ fun GlobalSearchOverlay(onDismiss: () -> Unit) {
                     value = query.value,
                     onValueChange = { query.value = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(R.string.search_placeholder)) },
+                    placeholder = { Text(stringResource(R.string.search_overlay_input_hint)) },
                     singleLine = true,
                 )
                 LazyColumn(

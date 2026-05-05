@@ -13,6 +13,12 @@
     <string name="menu_settings">Settings</string>
     <string name="menu_phone_delete_all">Delete all calls</string>
     <string name="menu_phone_insights">Communication insights</string>
+    <string name="menu_phone_who_is_this">Who is this?</string>
+    <string name="menu_phone_merge">Merge / cleanup contacts</string>
+    <string name="menu_phone_after_call">After-call sheet</string>
+    <string name="menu_phone_recording">Call recording</string>
+    <string name="menu_messages_bill_hygiene">Bill hygiene</string>
+    <string name="menu_messages_otp_center">OTP center</string>
     <string name="menu_messages_mark_read">Mark all read</string>
     <string name="menu_messages_inbox_cleaner">Inbox cleaner</string>
     <string name="menu_money_bill_due">Bill due</string>
@@ -23,6 +29,13 @@
 
     <string name="search_overlay_title">Search PhonIQ</string>
     <string name="search_placeholder">Numbers, names, messages…</string>
+    <string name="header_search_placeholder_phone">Search numbers, names</string>
+    <string name="header_search_placeholder_messages">Search messages</string>
+    <string name="header_search_placeholder_money">Search transactions</string>
+    <string name="search_overlay_input_hint">Search calls, SMS, contacts…</string>
+    <string name="cd_compose_new_message">New message</string>
+    <string name="toast_compose_new_message">Composer + SMS role — prototype only.</string>
+    <string name="msg_list_typing_hint">typing…</string>
     <string name="action_close">Close</string>
     <string name="action_got_it">Got it</string>
 
@@ -30,6 +43,7 @@
     <string name="phone_tab_contacts">Contacts</string>
     <string name="phone_tab_favorites">Favorites</string>
     <string name="phone_quick_calls_label">Frequent quick calls</string>
+    <string name="phone_section_recent_calls">Recent Calls</string>
     <string name="toast_quick_call">Quick call: %1$s — outgoing mock (no call placed).</string>
     <string name="phone_recent_empty_filtered">No calls match this filter.</string>
     <string name="filter_all">All</string>
@@ -45,6 +59,9 @@
     <string name="direction_outgoing">Outgoing</string>
     <string name="direction_missed">Missed</string>
     <string name="direction_rejected">Rejected</string>
+    <string name="recent_channel_phone">Phone</string>
+    <string name="recent_channel_whatsapp">WhatsApp</string>
+    <string name="recent_meta_synth">%1$s · %2$s</string>
     <string name="cd_redial">Redial</string>
     <string name="cd_wa_voice">WhatsApp voice</string>
     <string name="cd_wa_video">WhatsApp video</string>
@@ -69,11 +86,20 @@
     <string name="msg_filter_personal">Personal</string>
     <string name="msg_filter_transaction">Txn</string>
     <string name="msg_filter_otp">OTP</string>
+    <string name="msg_filter_bill">Bill</string>
+    <string name="msg_filter_delivery">Delivery</string>
+    <string name="msg_filter_travel">Travel</string>
     <string name="msg_filter_spam">Spam</string>
     <string name="toast_open_thread">Open thread: %1$s (next).</string>
 
     <string name="money_spent_label">Spent %1$s</string>
     <string name="money_income_label">Income %1$s</string>
+    <string name="otp_copy_btn">Copy</string>
+    <string name="otp_expired">Expired</string>
+    <string name="otp_copied_toast">OTP %1$s copied</string>
+    <string name="money_savings_label">Monthly savings</string>
+    <string name="money_txn_title">Recent transactions</string>
+    <string name="money_txn_see_all">See all</string>
     <string name="money_tools_label">Money tools</string>
     <string name="money_tool_bill_title">Bill due</string>
     <string name="money_tool_bill_sub">CC, utilities, recharge</string>
@@ -112,12 +138,61 @@
 
     <string name="wire_phone_delete_title">Delete all calls</string>
     <string name="wire_phone_delete_body">You will confirm once, then clear the on-device recents list. Default dialer + Room storage are not wired yet — this screen is a prototype placeholder.</string>
+    <string name="dialog_delete_all_title">Delete all recent calls?</string>
+    <string name="dialog_delete_all_body">This clears the sample recents list on this device for this session. A future build will sync with your real call log after default-dialer permissions.</string>
+    <string name="action_delete_all">Delete all</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="snackbar_recents_cleared">Recents cleared.</string>
+
+    <string name="thread_preview_label">Thread preview</string>
+    <string name="thread_last_call_label">Last call (mock)</string>
+    <string name="thread_local_note_label">Local note</string>
+    <string name="thread_full_conversation_wire">SMS provider + Room thread sync — prototype bubbles above are sample-only.</string>
+    <string name="thread_rcs_active_short">RCS</string>
+    <string name="thread_rcs_active_detail">Rich messaging · Read receipts · Typing · Hi‑res photos &amp; link previews</string>
+    <string name="thread_e2e_rcs">End-to-end encrypted via RCS</string>
+    <string name="thread_sms_plain_default">SMS · Standard text messaging · RCS not available for this sender</string>
+    <string name="thread_cd_video_call">Video call</string>
+    <string name="thread_cd_voice_call">Voice call</string>
+    <string name="thread_cd_thread_menu">Conversation menu</string>
+    <string name="thread_copy_otp">Copy OTP</string>
+    <string name="toast_otp_copied">OTP %1$s copied.</string>
+    <string name="thread_view_in_money">View in Money</string>
+    <string name="toast_view_in_money">Money tab + txn detail — prototype handoff.</string>
+    <string name="toast_thread_video">Video via carrier — placeholder.</string>
+    <string name="toast_thread_overflow">Conversation menu — prototype.</string>
+    <string name="thread_composer_hint">Message</string>
+    <string name="thread_cd_emoji">Emoji</string>
+    <string name="thread_cd_attach">Attach</string>
+    <string name="thread_cd_send">Send</string>
+
+    <string name="wire_phone_who_title">Who is this?</string>
+    <string name="wire_phone_who_body">Fuse last PSTN/WA call, last SMS from the same sender, and your local notes — read-only until contacts + SMS are linked in Room.</string>
+    <string name="wire_phone_merge_title">Merge / cleanup contacts</string>
+    <string name="wire_phone_merge_body">Duplicate detection, format normalization, and merge preview — wizard UI from PROJECT.md lands here.</string>
+    <string name="wire_phone_aftercall_title">After-call sheet</string>
+    <string name="wire_phone_aftercall_body">Save contact, quick note, block, SMS template shortcuts — shown when a call ends once InCallService exists.</string>
+    <string name="wire_phone_recording_title">Call recording</string>
+    <string name="wire_phone_recording_body">Consent line, per-call toggle, encrypted local files, and a simple player/list — on-device only.</string>
+    <string name="wire_messages_bill_title">Bill hygiene</string>
+    <string name="wire_messages_bill_body">Pin or archive promo senders, surface bill due rows, and keep OTP threads tidy — tied to the Money reminders slice.</string>
+    <string name="wire_messages_otp_title">OTP center</string>
+    <string name="wire_messages_otp_body">Expiry countdown + one-tap copy in list and thread; parses from SMS without network.</string>
+
     <string name="wire_phone_insights_title">Communication insights</string>
     <string name="wire_phone_insights_body">On-device stats: time on calls, top contacts, missed trends. No telemetry — all local aggregation once call log access exists.</string>
-    <string name="wire_messages_mark_read_title">Mark all read</string>
-    <string name="wire_messages_mark_read_body">Batch mark threads read (SMS provider / default SMS role). Parser and Room inbox come next.</string>
-    <string name="wire_messages_inbox_title">Inbox cleaner</string>
-    <string name="wire_messages_inbox_body">Pin / archive promos, bill hygiene, OTP hygiene — flows from PROJECT.md will attach here.</string>
+
+    <string name="sheet_mark_all_read_title">Mark all as read</string>
+    <string name="sheet_mark_all_read_body">Marks every thread in this prototype list as read. With the default SMS app role, PhonIQ will sync read state to the provider and Room.</string>
+    <string name="sheet_mark_all_read_confirm">Mark all read</string>
+    <string name="sheet_inbox_cleaner_title">Inbox cleaner</string>
+    <string name="sheet_inbox_cleaner_body">Dry-run preview for promo / OTP / bill hygiene. Nothing is deleted — this is a UI shell until SMS parsing and Room land.</string>
+    <string name="sheet_inbox_bullet_promos">Pin or archive promo and marketing threads</string>
+    <string name="sheet_inbox_bullet_otp">Tuck away OTP threads after you copy the code</string>
+    <string name="sheet_inbox_bullet_bills">Surface bill due nudges next to Money reminders</string>
+    <string name="sheet_inbox_run_preview">Run dry run</string>
+    <string name="snackbar_all_threads_read">All threads marked read (prototype).</string>
+    <string name="snackbar_inbox_dry_run">Dry run: 2 promo-like threads, 1 OTP thread, 1 bill row — actions are mocked.</string>
     <string name="wire_money_bill_title">Bill due</string>
     <string name="wire_money_bill_body">Credit card, gas, electricity, recharge — infer due dates from SMS and surface an upcoming list on Money / Messages.</string>
     <string name="wire_money_recurring_title">Recurring &amp; transfers</string>
@@ -128,4 +203,55 @@
     <string name="wire_money_invest_body">MF / broker / registrar-style SMS → IQ cards; ambiguous parses need user confirm (no live market data).</string>
     <string name="wire_money_export_title">Export</string>
     <string name="wire_money_export_body">Local CSV / PDF and optional manual upload to Drive only when you choose.</string>
+
+    <!-- Settings root groups -->
+    <string name="settings_group_general">General</string>
+    <string name="settings_group_data">Data &amp; device</string>
+    <string name="settings_row_widgets">Widgets &amp; shortcuts</string>
+    <string name="settings_row_widgets_sub">Optional · layout wire</string>
+
+    <!-- Personalization section labels -->
+    <string name="perso_theme_section">App Theme</string>
+    <string name="perso_accent_section">Accent Color</string>
+    <string name="perso_dialpad_section">Dialpad Style</string>
+    <string name="perso_font_family_section">Font Family</string>
+    <string name="perso_font_size_section">Font Size</string>
+    <string name="perso_display_section">Display</string>
+    <string name="perso_call_section">Call Screen</string>
+    <string name="perso_messages_section">Messages</string>
+    <string name="perso_money_section">Money Manager</string>
+    <string name="perso_privacy_section">Privacy &amp; Security</string>
+
+    <!-- Personalization toggles -->
+    <string name="perso_amoled_dark">AMOLED Dark Mode</string>
+    <string name="perso_amoled_dark_sub">Pure black background saves battery on OLED</string>
+    <string name="perso_auto_theme">Auto Day/Night Theme</string>
+    <string name="perso_auto_theme_sub">Switch theme based on system time</string>
+    <string name="perso_material_you">Material You Color</string>
+    <string name="perso_material_you_sub">Extract accent from wallpaper (Android 12+)</string>
+    <string name="perso_haptics">Haptic Feedback</string>
+    <string name="perso_haptics_sub">Vibrate on taps and actions</string>
+    <string name="perso_call_timer">Show Call Timer</string>
+    <string name="perso_call_timer_sub">Display elapsed time during a call</string>
+    <string name="perso_verified_badge">PhonIQ Verified Badge</string>
+    <string name="perso_verified_badge_sub">Show identity badge for verified callers</string>
+    <string name="perso_otp_autocopy">OTP Auto-Copy</string>
+    <string name="perso_otp_autocopy_sub">Automatically copy detected OTP to clipboard</string>
+    <string name="perso_rcs">RCS Messaging</string>
+    <string name="perso_rcs_sub">Enhanced messaging with read receipts and typing</string>
+    <string name="perso_over_budget">Over-Budget Alert</string>
+    <string name="perso_over_budget_sub">Notify when spending exceeds monthly budget</string>
+    <string name="perso_app_lock">App Lock (Biometric)</string>
+    <string name="perso_app_lock_sub">Require fingerprint or face to open PhonIQ</string>
+    <string name="perso_blur_amounts">Blur Amounts on Screenshot</string>
+    <string name="perso_blur_amounts_sub">Hide financial data in screenshots and recents</string>
+    <string name="perso_stealth_mode">Stealth Mode (hide Money tab)</string>
+    <string name="perso_stealth_mode_sub">Remove Money tab from navigation bar</string>
+
+    <!-- Contacts panel -->
+    <string name="contacts_search_placeholder">Search contacts</string>
+    <string name="contacts_all_label">All Contacts</string>
+    <string name="contacts_blocked_label">Blocked numbers</string>
+    <string name="contacts_blocked_sub">3 blocked · Tap to manage</string>
+    <string name="contacts_blocked_manage_toast">Blocked numbers manager</string>
 </resources>

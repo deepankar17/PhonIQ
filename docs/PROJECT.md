@@ -1,5 +1,5 @@
 # PhonIQ — Project Master Document
-> Last updated: 2026-05-04 (Android shell parity with HTML mockup)
+> Last updated: 2026-05-02 (Android: mockup shell parity — unified header, message filters+threads, nav tint)
 
 ## Identity
 - **App Name:** **PhonIQ** — *Phone* + **IQ** (capital **IQ** is intentional). Technical ids stay lowercased (e.g. `com.phoniq.app`, folder `phoniq/`).
@@ -63,7 +63,10 @@
 - **Settings:** root lists **Personalization** + **Data & device** (backup/restore wire, widgets wire); **Personalization** sub-view holds live theme/accent/dialpad/font/avatar/bubble controls and related toggles
 - **Contact detail:** row for **Per-contact call policies** (opens policy wire overlay)
 - **Prototype wires:** full-screen overlay (`proto-generic-overlay`) opened from the correct tab’s **⋮ menu**, **Money** “Money tools” chip strip, Settings **Data & device**, or contact-detail policy row — not a separate hub screen
-- **Android app (shell + samples):** `android/` — Kotlin, Jetpack Compose, **no `INTERNET` permission**, package **`com.phoniq.app`**, **minSdk 35**; bottom nav **Phone · Messages · Money**; **Phone** Recent/Contacts/Favorites, filters, **quick-call** strip, FAB; **Messages** filter chips + thread list with avatars; **Money** summary + budget bar, **Money tools** chip strip, donut + budget tracker cards (sample `SampleData`); **⋮** opens **proto wire** full-screen copy or **Settings** (Personalization + Data & device placeholders). Run **app** from `phoniq/android/` (see `android/README.md`).
+- **Android app (shell + samples):** `android/` — Kotlin, Jetpack Compose, **no `INTERNET` permission**, package **`com.phoniq.app`**, **minSdk 35**; **Shell** matches mockup **unified header**: tab **gradient icon** (Call / Message / Money) + PhonIQ + **center pill search** with **tab-specific placeholders** (numbers / messages / transactions); bottom nav **Phone · Messages · Money** with **accent-forward selected state** (mockup-like pill); **Phone** Recent/Contacts/Favorites (**Material3 `SecondaryTabRow`**), filters, **quick-call** strip, FAB, **recents** stateful (delete-all dialog); **Messages** **filter chips with icons + counts**, **compose FAB**, thread rows with **RCS badge, category pills, typing hint**, sample threads closer to HTML “All” list, **⋮ → Mark all read / Inbox cleaner** sheets; **Money** summary + budget bar, **Money tools** strip, donut + cards; **Money ⋮** item order matches mockup; **global search** placeholder **Search calls, SMS, contacts…**; **⋮** wires + **Settings**. Run from `phoniq/android/` (`android/README.md`).
+
+### Android ↔ HTML mockup — remaining parity (backlog)
+Use `design/phoniq-mockup-v1.html` as visual source of truth. Still **not** 1:1: **status bar** pictograms inside app chrome, **backdrop blur** on bottom bar, full **WA thread** (bubbles, ticks, voice, reactions), **Phone** row layout (avatar column + exact typography vs `call-item`), **Money** donut fidelity vs inline SVG, **Settings** density, **OTP countdown** in list, **proto wires** as real flows (insights stats, delete-all bottom sheet, after-call / who-is-this sheets), **contacts** blocked strip + inline search, **Remix** icon set (Material symbols stand in). **Recent list + quick-call strip** sample data and section label now follow the HTML order and scenarios (Track A). Track in issues or continue extending this list when the HTML changes.
 
 ---
 
@@ -87,8 +90,8 @@ Single place to track **product + UX requirements** against `design/phoniq-mocku
 - [x] **Contextual prototype entry points:** tab ⋮ menus, Money “Money tools” strip, Settings Data & device rows, contact-detail policy row — each opens the **wire overlay** for the matching backlog item (placeholder UI until flows are productized in chrome)
 
 ### Planned — next mockup iterations
-- [ ] **Delete all calls:** confirm bottom sheet + cleared / empty recent state (replace toast-only)
-- [ ] **Mark all read & Inbox cleaner:** dedicated flow or sheet (replace toast-only)
+- [x] **Delete all calls:** **Android:** `AlertDialog` confirm + clear recents + snackbar (mockup asked for bottom sheet — can swap later); empty list after clear
+- [x] **Mark all read & Inbox cleaner:** **Android:** `ModalBottomSheet` for each; mark-all clears `unread` on prototype threads; inbox cleaner dry-run + snackbar (full hygiene flows still TBD)
 - [ ] **After-call / end-call sheet:** save contact, note, block, SMS template shortcuts
 - [ ] **Communication insights:** lightweight stats screen (top contacts, call time, missed trends) — on-device story only
 - [ ] **“Who is this?” sheet:** fuse last call + last SMS + local notes (read-only mock)

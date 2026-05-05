@@ -1,0 +1,39 @@
+Android: full mockup shell parity (p1-p19) — Track B, Money, OTP, Settings, Contacts
+
+Track B — Messages thread overlay:
+- ConversationBubble sealed class (text/OTP/txn/reaction/link/voice/typing/system)
+- ThreadConversationSamples keyed by thread id (m1, m_rahul, m_phonepe, m_hdfc, m_amazon, m_swiggy, m_flip_log, m3/VFS)
+- ThreadDetailOverlay: full-screen WhatsApp-style thread (RCS/SMS bars, day dividers,
+  bubble variants, composer strip, OTP copy via Toast, View in Money snackbar wire)
+- MessagesScreen / MainActivity: onThreadAction callback wire
+
+OTP countdown in message list (p17):
+- MessageThread.otpCode + otpExpiresSeconds fields
+- OtpListStrip composable: live LaunchedEffect countdown, auto-expiry, Copy button
+- Color-coded pillColors(): OTP=teal, TXN=amber, BILL=red, Promo=purple
+
+Money screen (p13) — full mockup parity:
+- MoneySummary.savingsLabel replacing incomeLabel; CategorySpend adds emoji + budgetLabel
+- RecentTransaction model + SampleData aligned to mockup values (April 2026, 5 categories)
+- SpendingDonutCard: 5-color ring, center text via Box overlay, legend with dots + pct
+- BudgetTrackerGrid: 2x2 grid with emoji, colored mini-bars per category
+- Recent Transactions list: emoji-circle icons, debit red / credit teal
+
+Settings personalization (p12):
+- Full PersonalizationBody: accent swatches (10 colors), theme/dialpad/font/size chip rows
+- 13 toggles across Display, Call Screen, Messages, Money Manager, Privacy & Security
+- Root pane: "General" group label + separate "Widgets & shortcuts" row
+
+Proto-wire overlays (p15/p16):
+- ProtoWireOverlay refactored from title+bodyRes strings to action: ShellMenuAction
+- CommInsights: stat rows (Voice time, Top contact, Missed trend) + chart placeholder
+- AfterCall: four action rows + footer note + Got it CTA
+- WhoIsThis: three context rows + Open thread CTA
+- MainActivity: wireResources (Pair<Int,Int>?) replaced by wireAction: ShellMenuAction?
+
+Contacts panel (p18):
+- Rounded OutlinedTextField search bar with live contact filtering
+- "All Contacts" section label above filtered list
+- BlockedSection at bottom: Block icon, "3 blocked", manage icon button
+
+Build: assembleDebug BUILD SUCCESSFUL; only non-blocking ReceiptLong deprecation warning

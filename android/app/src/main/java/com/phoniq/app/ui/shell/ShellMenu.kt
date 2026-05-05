@@ -19,8 +19,14 @@ enum class ShellMenuAction {
     Settings,
     PhoneDeleteAllCalls,
     PhoneCommunicationInsights,
+    PhoneWhoIsThis,
+    PhoneMergeContacts,
+    PhoneAfterCall,
+    PhoneRecording,
     MessagesMarkAllRead,
     MessagesInboxCleaner,
+    MessagesBillHygiene,
+    MessagesOtpCenter,
     MoneyBillDue,
     MoneyRecurring,
     MoneySalaryYearly,
@@ -32,14 +38,23 @@ enum class ShellMenuAction {
 fun ShellMenuAction.wireStrings(): Pair<Int, Int>? =
     when (this) {
         ShellMenuAction.Settings -> null
-        ShellMenuAction.PhoneDeleteAllCalls ->
-            R.string.wire_phone_delete_title to R.string.wire_phone_delete_body
+        ShellMenuAction.PhoneDeleteAllCalls -> null
         ShellMenuAction.PhoneCommunicationInsights ->
             R.string.wire_phone_insights_title to R.string.wire_phone_insights_body
-        ShellMenuAction.MessagesMarkAllRead ->
-            R.string.wire_messages_mark_read_title to R.string.wire_messages_mark_read_body
-        ShellMenuAction.MessagesInboxCleaner ->
-            R.string.wire_messages_inbox_title to R.string.wire_messages_inbox_body
+        ShellMenuAction.PhoneWhoIsThis ->
+            R.string.wire_phone_who_title to R.string.wire_phone_who_body
+        ShellMenuAction.PhoneMergeContacts ->
+            R.string.wire_phone_merge_title to R.string.wire_phone_merge_body
+        ShellMenuAction.PhoneAfterCall ->
+            R.string.wire_phone_aftercall_title to R.string.wire_phone_aftercall_body
+        ShellMenuAction.PhoneRecording ->
+            R.string.wire_phone_recording_title to R.string.wire_phone_recording_body
+        ShellMenuAction.MessagesMarkAllRead -> null
+        ShellMenuAction.MessagesInboxCleaner -> null
+        ShellMenuAction.MessagesBillHygiene ->
+            R.string.wire_messages_bill_title to R.string.wire_messages_bill_body
+        ShellMenuAction.MessagesOtpCenter ->
+            R.string.wire_messages_otp_title to R.string.wire_messages_otp_body
         ShellMenuAction.MoneyBillDue ->
             R.string.wire_money_bill_title to R.string.wire_money_bill_body
         ShellMenuAction.MoneyRecurring ->
