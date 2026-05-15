@@ -32,7 +32,7 @@ import com.phoniq.app.data.db.entity.TransactionEntity
         CategoryEntity::class,
         OtpLogEntity::class,
     ],
-    version = 1,
+    version = 5,
     exportSchema = false,
 )
 abstract class PhonIQDatabase : RoomDatabase() {

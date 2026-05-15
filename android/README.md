@@ -26,7 +26,7 @@ Kotlin + **Jetpack Compose** shell aligned with `design/phoniq-mockup-v1.html` a
 ## Current scope (v0.1)
 
 - `com.phoniq.app` application id / namespace
-- **No `INTERNET` permission** in the manifest (offline-first pillar)
+- **`INTERNET` / `ACCESS_NETWORK_STATE`** declared for optional manual/future-facing flows (`docs/PROJECT.md` Core Philosophy)—**not** used for IQ, background sync, ads, telemetry, or cloud spam/ID in this milestone
 - **Bottom navigation:** Phone · Messages · Money (placeholder screens)
 - Dark **Material 3** colors roughly matching the HTML mockup accent (`#6C63FF`)
 

@@ -16,6 +16,6 @@ Offline-first Android app: Phone, Messages, Money — specs and HTML mockup live
 - Personalization UX: [`docs/PERSONALIZATION.md`](docs/PERSONALIZATION.md)
 - Interactive mockup: [`design/phoniq-mockup-v1.html`](design/phoniq-mockup-v1.html)
 
-**Privacy:** no ads, no telemetry, **no `INTERNET`** in the app manifest; Google Drive only for **manual** backup (no background sync).
+**Privacy:** no ads, no telemetry, **offline-first** core IQ. `INTERNET` may appear in the manifest for optional future/manual flows only (Drive and similar)—**not** for background sync, ads, telemetry, or cloud caller reputation.
 
 > Early development — APIs and structure will evolve. Issues and PRs welcome after a CONTRIBUTING note is added.

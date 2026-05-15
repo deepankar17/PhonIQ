@@ -44,6 +44,9 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(txns: List<TransactionEntity>)
 
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAll()
+
     @Update
     suspend fun update(txn: TransactionEntity)
 }

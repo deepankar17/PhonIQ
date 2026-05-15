@@ -8,7 +8,7 @@ enum class MessageTickVisual {
     Read,
 }
 
-/** Scripted bubbles for thread overlay (`phoniq-mockup-v1.html` `openSmsThread`). */
+/** Conversation bubbles for thread UI, built from on-device SMS rows ([SmsMessageEntity]) in the mapper. */
 sealed interface ConversationBubble {
     data class DayDivider(val label: String) : ConversationBubble
 
@@ -46,6 +46,8 @@ sealed interface ConversationBubble {
         val code: String,
         val footer: String,
         val time: String,
+        /** When set (real SMS), thread shows live countdown + copy like the inbox list. */
+        val expiresAtEpochMillis: Long? = null,
     ) : ConversationBubble
 
     data class TxnBubble(
@@ -56,9 +58,3 @@ sealed interface ConversationBubble {
         val showViewInMoney: Boolean,
     ) : ConversationBubble
 }
-
-/** Plain-SMS hint when RCS is off — mock `plainHint`. */
-data class ThreadConversationScript(
-    val plainSmsHint: String?,
-    val bubbles: List<ConversationBubble>,
-)

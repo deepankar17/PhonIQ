@@ -2,6 +2,7 @@ package com.phoniq.app
 
 import android.app.Application
 import androidx.room.Room
+import com.phoniq.app.data.db.DatabaseMigrations
 import com.phoniq.app.data.db.PhonIQDatabase
 import com.phoniq.app.data.repository.CallLogRepository
 import com.phoniq.app.data.repository.ContactsRepository
@@ -15,10 +16,29 @@ import kotlinx.coroutines.launch
 
 class PhonIQApp : Application() {
 
-    val database: PhonIQDatabase by lazy {
-        Room.databaseBuilder(this, PhonIQDatabase::class.java, "phoniq.db")
-            .fallbackToDestructiveMigration(dropAllTables = true)
-            .build()
+    private val dbLock = Any()
+    @Volatile
+    private var databaseRef: PhonIQDatabase? = null
+
+    val database: PhonIQDatabase
+        get() =
+            synchronized(dbLock) {
+                if (databaseRef == null) {
+                    databaseRef =
+                        Room.databaseBuilder(this, PhonIQDatabase::class.java, "phoniq.db")
+                            .addMigrations(DatabaseMigrations.MIGRATION_4_5)
+                            .fallbackToDestructiveMigration(dropAllTables = true)
+                            .build()
+                }
+                databaseRef!!
+            }
+
+    /** Close Room DB so a backup file can replace `phoniq.db` on disk (restore). */
+    fun closeDatabase() {
+        synchronized(dbLock) {
+            databaseRef?.close()
+            databaseRef = null
+        }
     }
 
     override fun onCreate() {

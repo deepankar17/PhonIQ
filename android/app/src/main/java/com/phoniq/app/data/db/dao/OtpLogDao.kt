@@ -19,6 +19,9 @@ interface OtpLogDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(otp: OtpLogEntity): Long
 
+    @Query("DELETE FROM otp_log")
+    suspend fun deleteAll()
+
     @Query("UPDATE otp_log SET was_copied = 1 WHERE id = :id")
     suspend fun markCopied(id: Long)
 }

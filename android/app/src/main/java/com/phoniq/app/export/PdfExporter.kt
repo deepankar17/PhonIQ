@@ -29,7 +29,7 @@ object PdfExporter {
     private const val HEADER_HEIGHT = 80f
 
     private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-    private val moneyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+    private val moneyFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("en-IN"))
 
     // -----------------------------------------------------------------------
     // Public API

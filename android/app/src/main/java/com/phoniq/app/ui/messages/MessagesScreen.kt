@@ -17,28 +17,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.CurrencyRupee
-import androidx.compose.material.icons.outlined.FlightTakeoff
 import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.Key
-import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.MarkEmailUnread
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Report
-import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,11 +42,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -60,6 +55,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.phoniq.app.PhonIQLaunchRouter
 import com.phoniq.app.R
 import com.phoniq.app.data.model.MessageThread
 import com.phoniq.app.data.model.MessageThreadCategory
@@ -67,54 +63,184 @@ import com.phoniq.app.data.model.matches
 import com.phoniq.app.ui.theme.PhoniqAccent
 import com.phoniq.app.ui.theme.PhoniqBorderSoft
 import com.phoniq.app.ui.theme.PhoniqSecondary
-import com.phoniq.app.ui.theme.PhoniqSurface
 import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
 import com.phoniq.app.ui.theme.PhoniqTextSubtle
+import com.phoniq.app.ui.components.AvatarInitialsText
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 
+/** Items per "page" for the thread list window (initial + each scroll load). */
+private const val MESSAGE_INBOX_PAGE_SIZE = 10
+/** Load the next page when the last visible row is within this many items of the list end. */
+private const val MESSAGE_LIST_SCROLL_THRESHOLD = 3
+/** Coalesce rapid layout updates so we do not bump the window multiple times per scroll settle. */
+private const val MESSAGE_INBOX_END_SCROLL_DEBOUNCE_MS = 120L
+
+private val InboxStripCategories =
+    listOf(
+        MessageThreadCategory.All,
+        MessageThreadCategory.Unread,
+        MessageThreadCategory.Archived,
+    )
+
+@OptIn(FlowPreview::class)
 @Composable
 fun MessagesScreen(
     threads: List<MessageThread>,
-    onComposeClick: () -> Unit = {},
+    messagesViewModel: MessagesViewModel,
+    pendingOpenThreadId: String? = null,
+    onConsumePendingOpenThread: () -> Unit = {},
+    pendingComposeAddress: String? = null,
+    onConsumePendingCompose: () -> Unit = {},
+    pendingOpenBlankComposer: Boolean = false,
+    onConsumePendingOpenBlankComposer: () -> Unit = {},
+    onNavigateToMoney: () -> Unit = {},
     onThreadAction: (String) -> Unit = {},
 ) {
     var category by remember { mutableStateOf(MessageThreadCategory.All) }
     var openThreadId by remember { mutableStateOf<String?>(null) }
+    var draftThread by remember { mutableStateOf<MessageThread?>(null) }
+    // Full thread list comes from the VM; we only compose a growing window here (see VM tech-debt note).
     val visibleThreads = threads.filter { it.matches(category) }
     val openThread = openThreadId?.let { id -> threads.find { it.id == id } }
+    val overlayThread = draftThread ?: openThread
+    val threadNotFoundMessage = stringResource(R.string.search_thread_not_found)
+    val inboxListState = rememberLazyListState()
+    var inboxVisibleLimit by remember(category) { mutableIntStateOf(MESSAGE_INBOX_PAGE_SIZE) }
+    val activeInboxFullSize = visibleThreads.size
+    val pagedThreads =
+        remember(visibleThreads, inboxVisibleLimit) {
+            visibleThreads.take(minOf(inboxVisibleLimit, visibleThreads.size))
+        }
+
+    LaunchedEffect(activeInboxFullSize) {
+        when {
+            activeInboxFullSize == 0 -> inboxVisibleLimit = 0
+            inboxVisibleLimit > activeInboxFullSize -> inboxVisibleLimit = activeInboxFullSize
+            inboxVisibleLimit == 0 -> inboxVisibleLimit = minOf(MESSAGE_INBOX_PAGE_SIZE, activeInboxFullSize)
+        }
+    }
+
+    LaunchedEffect(category) {
+        inboxListState.scrollToItem(0)
+    }
+
+    LaunchedEffect(inboxListState, category, activeInboxFullSize, inboxVisibleLimit) {
+        snapshotFlow {
+            val layout = inboxListState.layoutInfo
+            val last = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+            val total = layout.totalItemsCount
+            last to total
+        }
+            .distinctUntilChanged()
+            .debounce(MESSAGE_INBOX_END_SCROLL_DEBOUNCE_MS)
+            .collect { (last, total) ->
+                if (activeInboxFullSize == 0) return@collect
+                if (inboxVisibleLimit < activeInboxFullSize &&
+                    total > 0 &&
+                    last >= total - MESSAGE_LIST_SCROLL_THRESHOLD
+                ) {
+                    inboxVisibleLimit =
+                        (inboxVisibleLimit + MESSAGE_INBOX_PAGE_SIZE).coerceAtMost(activeInboxFullSize)
+                }
+            }
+    }
+
+    LaunchedEffect(pendingComposeAddress) {
+        val raw = pendingComposeAddress?.trim()?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        draftThread = draftThreadForAddress(raw)
+        openThreadId = null
+        category = MessageThreadCategory.All
+        onConsumePendingCompose()
+    }
+
+    LaunchedEffect(pendingOpenBlankComposer) {
+        if (!pendingOpenBlankComposer) return@LaunchedEffect
+        draftThread = draftThreadForAddress("")
+        openThreadId = null
+        category = MessageThreadCategory.All
+        onConsumePendingOpenBlankComposer()
+    }
+
+    LaunchedEffect(pendingOpenThreadId, threads) {
+        val id = pendingOpenThreadId ?: return@LaunchedEffect
+        if (threads.isEmpty()) return@LaunchedEffect
+        val thread = threads.find { it.id == id }
+        if (thread != null) {
+            if (thread.isArchived) {
+                category = MessageThreadCategory.Archived
+            } else if (!thread.matches(category)) {
+                category = MessageThreadCategory.All
+            }
+            openThreadId = id
+        } else {
+            onThreadAction(threadNotFoundMessage)
+        }
+        onConsumePendingOpenThread()
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+        ) {
             MessageCategoryFilterStrip(
                 threads = threads,
+                stripCategories = InboxStripCategories,
                 selected = category,
                 onSelect = { category = it },
             )
             LazyColumn(
+                state = inboxListState,
                 modifier =
                     Modifier
                         .weight(1f)
                         .fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = 88.dp),
             ) {
-                itemsIndexed(visibleThreads, key = { _, t -> t.id }) { index, thread ->
-                    Column(Modifier.fillMaxWidth()) {
-                        ThreadRow(thread = thread, onOpen = { openThreadId = it.id })
-                        if (index < visibleThreads.lastIndex) {
-                            HorizontalDivider(
-                                color = PhoniqBorderSoft,
-                                thickness = 1.dp,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                if (visibleThreads.isEmpty()) {
+                    item {
+                        Text(
+                            text = stringResource(R.string.messages_inbox_empty),
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 32.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
+                } else {
+                    itemsIndexed(pagedThreads, key = { _, t -> t.id }) { index, thread ->
+                        Column(Modifier.fillMaxWidth()) {
+                            ThreadRow(
+                                thread = thread,
+                                onOpen = { openThreadId = it.id },
+                                messagesViewModel = messagesViewModel,
                             )
+                            if (index < pagedThreads.lastIndex) {
+                                HorizontalDivider(
+                                    color = PhoniqBorderSoft,
+                                    thickness = 1.dp,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                                )
+                            }
                         }
                     }
                 }
             }
         }
-        openThread?.let { t ->
+        overlayThread?.let { t ->
             ThreadDetailOverlay(
                 thread = t,
-                onDismiss = { openThreadId = null },
+                messagesViewModel = messagesViewModel,
+                onDismiss = {
+                    openThreadId = null
+                    draftThread = null
+                },
                 onUserMessage = onThreadAction,
+                onNavigateToMoney = onNavigateToMoney,
             )
         }
         Box(
@@ -125,7 +251,7 @@ fun MessagesScreen(
                     .size(48.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(Brush.linearGradient(listOf(Color(0xFF00D4AA), Color(0xFF009980))))
-                    .clickable(onClick = onComposeClick),
+                    .clickable(onClick = { PhonIQLaunchRouter.offerBlankSmsCompose() }),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -138,19 +264,41 @@ fun MessagesScreen(
     }
 }
 
+private fun draftThreadForAddress(addr: String): MessageThread {
+    val peer = addr.trim()
+    val id = "sms_$peer"
+    return MessageThread(
+        id = id,
+        title = peer,
+        snippet = "",
+        timeLabel = "",
+        unread = false,
+        categories = emptySet(),
+        peerAddress = peer,
+    )
+}
+
 private fun categoryMatchCount(
     threads: Collection<MessageThread>,
     category: MessageThreadCategory,
 ): Int =
     when (category) {
-        MessageThreadCategory.All -> threads.size
-        MessageThreadCategory.Unread -> threads.count { it.unread }
-        else -> threads.count { category in it.categories }
+        MessageThreadCategory.All -> threads.count { !it.isArchived }
+        MessageThreadCategory.Archived -> threads.count { it.isArchived }
+        MessageThreadCategory.Unread -> threads.count { it.unread && !it.isArchived }
+        MessageThreadCategory.Personal -> threads.count { !it.isArchived && MessageThreadCategory.Personal in it.categories }
+        MessageThreadCategory.Transaction -> threads.count { !it.isArchived && MessageThreadCategory.Transaction in it.categories }
+        MessageThreadCategory.Otp -> threads.count { !it.isArchived && MessageThreadCategory.Otp in it.categories }
+        MessageThreadCategory.Bill -> threads.count { !it.isArchived && MessageThreadCategory.Bill in it.categories }
+        MessageThreadCategory.Delivery -> threads.count { !it.isArchived && MessageThreadCategory.Delivery in it.categories }
+        MessageThreadCategory.Travel -> threads.count { !it.isArchived && MessageThreadCategory.Travel in it.categories }
+        MessageThreadCategory.Spam -> threads.count { !it.isArchived && MessageThreadCategory.Spam in it.categories }
     }
 
 @Composable
 private fun MessageCategoryFilterStrip(
     threads: Collection<MessageThread>,
+    stripCategories: List<MessageThreadCategory>,
     selected: MessageThreadCategory,
     onSelect: (MessageThreadCategory) -> Unit,
 ) {
@@ -163,13 +311,26 @@ private fun MessageCategoryFilterStrip(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        MessageThreadCategory.entries.forEach { c ->
+        val selectedSuffixStr = stringResource(R.string.msg_filter_selected_suffix)
+        stripCategories.forEach { c ->
             val count = categoryMatchCount(threads, c)
+            val labelStr = inboxStripCategoryLabel(c)
+            val semLabel =
+                buildString {
+                    append(labelStr)
+                    append(": ")
+                    append(count)
+                    if (selected == c) {
+                        append(", ")
+                        append(selectedSuffixStr)
+                    }
+                }
             MsgTabChip(
-                icon = categoryIcon(c),
-                label = threadCategoryLabel(c),
+                icon = inboxStripCategoryIcon(c),
+                label = labelStr,
                 count = count,
                 selected = selected == c,
+                semanticsLabel = semLabel,
                 onClick = { onSelect(c) },
             )
         }
@@ -182,11 +343,12 @@ private fun MsgTabChip(
     label: String,
     count: Int,
     selected: Boolean,
+    semanticsLabel: String,
     onClick: () -> Unit,
 ) {
     val borderColor =
         if (selected) PhoniqAccent.copy(alpha = 0.22f) else Color.Transparent
-    val bg = if (selected) PhoniqAccent.copy(alpha = 0.18f) else PhoniqSurface
+    val bg = if (selected) PhoniqAccent.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface
     val fg = if (selected) PhoniqAccent else PhoniqTextSecondaryMock
     val countBg =
         if (selected) PhoniqAccent.copy(alpha = 0.24f) else PhoniqTextSubtle.copy(alpha = 0.22f)
@@ -196,6 +358,12 @@ private fun MsgTabChip(
         shape = RoundedCornerShape(20.dp),
         color = bg,
         border = BorderStroke(1.dp, borderColor),
+        modifier =
+            Modifier
+                .defaultMinSize(minHeight = 48.dp)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = semanticsLabel
+                },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -230,37 +398,28 @@ private fun MsgTabChip(
 }
 
 @Composable
-private fun categoryIcon(c: MessageThreadCategory): ImageVector =
+private fun inboxStripCategoryIcon(c: MessageThreadCategory): ImageVector =
     when (c) {
         MessageThreadCategory.All -> Icons.Outlined.Inbox
         MessageThreadCategory.Unread -> Icons.Outlined.MarkEmailUnread
-        MessageThreadCategory.Personal -> Icons.Outlined.Person
-        MessageThreadCategory.Transaction -> Icons.Outlined.CurrencyRupee
-        MessageThreadCategory.Otp -> Icons.Outlined.Key
-        MessageThreadCategory.Bill -> Icons.AutoMirrored.Outlined.ReceiptLong
-        MessageThreadCategory.Delivery -> Icons.Outlined.LocalShipping
-        MessageThreadCategory.Travel -> Icons.Outlined.FlightTakeoff
-        MessageThreadCategory.Spam -> Icons.Outlined.Report
+        MessageThreadCategory.Archived -> Icons.Outlined.Archive
+        else -> Icons.Outlined.Inbox
     }
 
 @Composable
-private fun threadCategoryLabel(c: MessageThreadCategory): String =
+private fun inboxStripCategoryLabel(c: MessageThreadCategory): String =
     when (c) {
         MessageThreadCategory.All -> stringResource(R.string.msg_filter_all)
         MessageThreadCategory.Unread -> stringResource(R.string.msg_filter_unread)
-        MessageThreadCategory.Personal -> stringResource(R.string.msg_filter_personal)
-        MessageThreadCategory.Transaction -> stringResource(R.string.msg_filter_transaction)
-        MessageThreadCategory.Otp -> stringResource(R.string.msg_filter_otp)
-        MessageThreadCategory.Bill -> stringResource(R.string.msg_filter_bill)
-        MessageThreadCategory.Delivery -> stringResource(R.string.msg_filter_delivery)
-        MessageThreadCategory.Travel -> stringResource(R.string.msg_filter_travel)
-        MessageThreadCategory.Spam -> stringResource(R.string.msg_filter_spam)
+        MessageThreadCategory.Archived -> stringResource(R.string.msg_filter_archived)
+        else -> stringResource(R.string.msg_filter_all)
     }
 
 @Composable
 private fun ThreadRow(
     thread: MessageThread,
     onOpen: (MessageThread) -> Unit,
+    messagesViewModel: MessagesViewModel,
 ) {
     val initial = thread.title.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
     val g0 = Color(thread.avatarStartArgb.toInt())
@@ -287,15 +446,14 @@ private fun ThreadRow(
                 Box(
                     modifier =
                         Modifier
-                            .size(46.dp)
+                            .size(56.dp)
                             .clip(CircleShape)
                             .background(Brush.linearGradient(listOf(g0, g1))),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
+                    AvatarInitialsText(
                         text = initial,
-                        color = Color.White,
-                        fontSize = 16.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -330,6 +488,36 @@ private fun ThreadRow(
                             maxLines = 1,
                             modifier = Modifier.weight(1f, fill = false),
                         )
+                        if (thread.isPinned) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = PhoniqAccent.copy(alpha = 0.14f),
+                                border = BorderStroke(1.dp, PhoniqAccent.copy(alpha = 0.3f)),
+                            ) {
+                                Text(
+                                    stringResource(R.string.thread_pin_chip),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PhoniqAccent,
+                                )
+                            }
+                        }
+                        thread.subtitleBadge?.let { badge ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0x2200D4AA),
+                                border = BorderStroke(1.dp, Color(0x4400D4AA)),
+                            ) {
+                                Text(
+                                    badge,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF00D4AA),
+                                )
+                            }
+                        }
                         if (thread.showRcsBadge) {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
@@ -353,6 +541,16 @@ private fun ThreadRow(
                         color = timeColor,
                     )
                 }
+                val peer = thread.peerAddress
+                if (!peer.isNullOrBlank() && peer != thread.title) {
+                    Text(
+                        peer,
+                        fontSize = 11.sp,
+                        color = PhoniqTextSubtle,
+                        maxLines = 1,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
                 Row(
                     modifier =
                         Modifier
@@ -361,38 +559,20 @@ private fun ThreadRow(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Row(
+                    Text(
+                        thread.snippet,
+                        fontSize = 12.sp,
+                        color = previewColor,
+                        maxLines = 1,
                         modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        Text(
-                            thread.snippet,
-                            fontSize = 12.sp,
-                            color = previewColor,
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        thread.rowPills.forEach { pill ->
-                            val (bg, fg) = pillColors(pill)
-                            Surface(shape = RoundedCornerShape(20.dp), color = bg) {
-                                Text(
-                                    text = pill,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 1.dp),
-                                    color = fg,
-                                )
-                            }
-                        }
-                    }
-                    if (thread.unread) {
+                    )
+                    if (thread.unread && thread.unreadCount > 0) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = PhoniqSecondary,
                         ) {
                             Text(
-                                "1",
+                                if (thread.unreadCount > 99) "99+" else thread.unreadCount.toString(),
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -411,113 +591,60 @@ private fun ThreadRow(
                     )
                 }
                 if (thread.otpCode != null) {
-                    OtpCopyStrip(code = thread.otpCode, expiresSeconds = thread.otpExpiresSeconds)
+                    OtpCountdownCopyStrip(
+                        code = thread.otpCode,
+                        expiresAtEpochMillis = thread.otpExpiresAtEpochMillis ?: 0L,
+                        modifier = Modifier.padding(top = 5.dp),
+                    )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun OtpCopyStrip(code: String, expiresSeconds: Int) {
-    val clipboard = LocalClipboardManager.current
-    var secondsLeft by remember(code) { mutableIntStateOf(expiresSeconds) }
-    var copied by remember(code) { mutableStateOf(false) }
-
-    LaunchedEffect(code) {
-        while (secondsLeft > 0) {
-            delay(1_000)
-            secondsLeft--
-        }
-    }
-
-    val expired = secondsLeft <= 0
-    val timerText = if (expired) "Expired" else {
-        val m = secondsLeft / 60
-        val s = secondsLeft % 60
-        if (m > 0) "${m}m ${s}s" else "${s}s"
-    }
-
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = if (expired) Color(0x20888888) else PhoniqAccent.copy(alpha = 0.1f),
-        border = BorderStroke(1.dp, if (expired) Color(0x30888888) else PhoniqAccent.copy(alpha = 0.28f)),
-        modifier = Modifier.padding(top = 5.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Icon(
-                Icons.Default.Timer,
-                contentDescription = null,
-                tint = if (expired) Color(0xFF888888) else PhoniqAccent,
-                modifier = Modifier.size(12.dp),
-            )
-            Text(
-                code,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                color = if (expired) Color(0xFF888888) else PhoniqAccent,
-            )
-            Text(
-                "·  $timerText",
-                fontSize = 10.sp,
-                color = if (expired) Color(0xFF666666) else PhoniqAccent.copy(alpha = 0.7f),
-            )
-            if (!expired) {
-                Surface(
-                    onClick = {
-                        clipboard.setText(AnnotatedString(code))
-                        copied = true
-                    },
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (copied) PhoniqSecondary.copy(alpha = 0.15f) else PhoniqAccent.copy(alpha = 0.18f),
+            var menuOpen by remember(thread.id) { mutableStateOf(false) }
+            Box {
+                IconButton(
+                    onClick = { menuOpen = true },
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        Icon(
-                            if (copied) Icons.Default.Done else Icons.Default.ContentCopy,
-                            contentDescription = "Copy OTP",
-                            tint = if (copied) PhoniqSecondary else PhoniqAccent,
-                            modifier = Modifier.size(10.dp),
-                        )
-                        Text(
-                            if (copied) "Copied!" else "Copy",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (copied) PhoniqSecondary else PhoniqAccent,
-                        )
-                    }
+                    Icon(
+                        Icons.Outlined.MoreVert,
+                        contentDescription = stringResource(R.string.cd_overflow_menu),
+                        tint = PhoniqTextSubtle,
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (thread.isPinned) {
+                                    stringResource(R.string.thread_unpin)
+                                } else {
+                                    stringResource(R.string.thread_pin)
+                                },
+                            )
+                        },
+                        onClick = {
+                            menuOpen = false
+                            messagesViewModel.setThreadPinned(thread.id, !thread.isPinned)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (thread.isArchived) {
+                                    stringResource(R.string.thread_unarchive)
+                                } else {
+                                    stringResource(R.string.thread_archive)
+                                },
+                            )
+                        },
+                        onClick = {
+                            menuOpen = false
+                            messagesViewModel.setThreadArchived(thread.id, !thread.isArchived)
+                        },
+                    )
                 }
             }
         }
-    }
-}
-
-private fun pillColors(pill: String): Pair<Color, Color> {
-    val p = pill.uppercase()
-    val accentSoft = PhoniqAccent.copy(alpha = 0.14f)
-    return when (p) {
-        "OTP" ->
-            PhoniqAccent.copy(alpha = 0.15f) to Color(0xFFB6AFFF)
-        "TXN", "TRANSACTION" ->
-            PhoniqAccent.copy(alpha = 0.17f) to Color(0xFFB6AFFF)
-        "BILL", "DUE" ->
-            Color(0x29FFC400) to Color(0xFFFFD86B)
-        "OVERDUE" ->
-            Color(0x30FF5050) to Color(0xFFFF8F8F)
-        "PROMO", "SPAM" ->
-            PhoniqAccent.copy(alpha = 0.13f) to Color(0xFFD0CAFF)
-        "DELIVERY", "TRACKING" ->
-            Color(0x2900D4AA) to Color(0xFF5BE8C6)
-        "TRAVEL" ->
-            PhoniqAccent.copy(alpha = 0.18f) to Color(0xFFB6AFFF)
-        else -> accentSoft to PhoniqTextSecondaryMock
     }
 }

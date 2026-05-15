@@ -161,7 +161,7 @@ class SmsParser {
     )
 
     private val merchantPatterns = listOf(
-        Regex("""at\s+([A-Za-z0-9 &._'/-]{3,40?})""", RegexOption.IGNORE_CASE),
+        Regex("""at\s+([A-Za-z0-9 &._'/-]{3,40})""", RegexOption.IGNORE_CASE),
         Regex("""to\s+VPA\s+[\w.@-]+\s*(?:of|for)?\s*([A-Za-z0-9 &._'/-]{3,30})""", RegexOption.IGNORE_CASE),
         Regex("""(?:merchant|payee|to)\s*[:\-]?\s*([A-Za-z0-9 &._'/-]{3,40})""", RegexOption.IGNORE_CASE),
         Regex("""(?:from|at)\s+([A-Za-z0-9 &._'/-]{3,40})""", RegexOption.IGNORE_CASE),
@@ -241,6 +241,15 @@ class SmsParser {
 
     private fun inferCategory(lower: String, merchant: String): String {
         val combined = "$lower $merchant"
+        if (combined.contains("folio") ||
+            combined.contains("purchase of units") ||
+            combined.contains("allotted units") ||
+            combined.contains("sip installment") ||
+            combined.contains("lumpsum") && combined.contains("fund") ||
+            combined.contains("demat") && combined.contains("credit") && combined.contains("fund")
+        ) {
+            return "INVESTMENT"
+        }
         for ((cat, keywords) in categoryKeywords) {
             if (keywords.any { combined.contains(it) }) return cat
         }

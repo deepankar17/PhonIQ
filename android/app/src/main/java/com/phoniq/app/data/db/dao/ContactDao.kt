@@ -14,6 +14,9 @@ interface ContactDao {
     @Query("SELECT * FROM contacts ORDER BY name ASC")
     fun observeAll(): Flow<List<ContactEntity>>
 
+    @Query("SELECT * FROM contacts WHERE is_starred = 1 ORDER BY name ASC")
+    fun observeStarred(): Flow<List<ContactEntity>>
+
     @Query("SELECT * FROM contacts WHERE number = :number LIMIT 1")
     suspend fun findByNumber(number: String): ContactEntity?
 
@@ -23,9 +26,15 @@ interface ContactDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(contact: ContactEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(contacts: List<ContactEntity>)
+
     @Update
     suspend fun update(contact: ContactEntity)
 
     @Delete
     suspend fun delete(contact: ContactEntity)
+
+    @Query("DELETE FROM contacts")
+    suspend fun deleteAll()
 }

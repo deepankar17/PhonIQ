@@ -13,7 +13,7 @@ import java.util.Locale
 
 /**
  * Exports Room entities to CSV files in the public Downloads folder via MediaStore.
- * No INTERNET permission required — files stay local.
+ * Outputs stay local; network is not involved in this exporter.
  */
 object CsvExporter {
 

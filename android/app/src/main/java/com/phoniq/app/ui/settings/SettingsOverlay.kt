@@ -9,7 +9,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Restore
@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,7 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
@@ -65,18 +66,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.phoniq.app.R
+import com.phoniq.app.telecom.CallRecordingPreferences
 import com.phoniq.app.ui.theme.PhoniqAccent
 import com.phoniq.app.ui.theme.PhoniqBackground
 import com.phoniq.app.ui.theme.PhoniqBorder
@@ -96,7 +102,14 @@ private val ChevronMuted = Color(0xFF444444)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsFullScreenOverlay(onDismiss: () -> Unit) {
+fun SettingsFullScreenOverlay(
+    onDismiss: () -> Unit,
+    onDarkThemePreference: (Boolean) -> Unit = {},
+    onExportLocalDatabase: () -> Unit = {},
+    onRestoreLocalDatabase: () -> Unit = {},
+    onInformCloudBackup: () -> Unit = {},
+    onWidgetsInfo: () -> Unit = {},
+) {
     var pane by remember { mutableStateOf(SettingsPane.Root) }
     Dialog(
         onDismissRequest = onDismiss,
@@ -172,9 +185,16 @@ fun SettingsFullScreenOverlay(onDismiss: () -> Unit) {
                             RootBody(
                                 onPersonalization = { pane = SettingsPane.Personalization },
                                 onDataDevice = { pane = SettingsPane.DataDevice },
+                                onWidgetsInfo = onWidgetsInfo,
                             )
-                        SettingsPane.Personalization -> PersonalizationBody()
-                        SettingsPane.DataDevice -> DataDeviceBody()
+                        SettingsPane.Personalization ->
+                            PersonalizationBody(onDarkThemePreference = onDarkThemePreference)
+                        SettingsPane.DataDevice ->
+                            DataDeviceBody(
+                                onExportLocalDatabase = onExportLocalDatabase,
+                                onRestoreLocalDatabase = onRestoreLocalDatabase,
+                                onInformCloudBackup = onInformCloudBackup,
+                            )
                     }
                 }
             }
@@ -183,7 +203,11 @@ fun SettingsFullScreenOverlay(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun RootBody(onPersonalization: () -> Unit, onDataDevice: () -> Unit) {
+private fun RootBody(
+    onPersonalization: () -> Unit,
+    onDataDevice: () -> Unit,
+    onWidgetsInfo: () -> Unit,
+) {
     SettingsSectionLabel(stringResource(R.string.settings_group_general), topPaddingExtra = 4.dp)
     SettingsCard {
         SettingsNavRow(
@@ -215,16 +239,15 @@ private fun RootBody(onPersonalization: () -> Unit, onDataDevice: () -> Unit) {
                 Brush.linearGradient(
                     colors = listOf(Color(0xFF95A5A6), Color(0xFF7F8C8D)),
                 ),
-            onClick = {},
+            onClick = onWidgetsInfo,
         )
     }
 }
 
 @Composable
-private fun PersonalizationBody() {
+private fun PersonalizationBody(onDarkThemePreference: (Boolean) -> Unit = {}) {
+    val context = LocalContext.current
     var selectedTheme by remember { mutableStateOf("Deep Dark") }
-    val themes = listOf("AMOLED", "Deep Dark", "Dark Navy", "Forest", "Wine", "Light")
-
     val accentColors =
         listOf(
             Color(0xFF6C63FF),
@@ -255,6 +278,7 @@ private fun PersonalizationBody() {
     var haptics by remember { mutableStateOf(true) }
 
     var showCallTimer by remember { mutableStateOf(true) }
+    var callRecordingEnabled by remember { mutableStateOf(CallRecordingPreferences.isEnabled(context)) }
     var verifiedBadge by remember { mutableStateOf(true) }
 
     var otpAutoCopy by remember { mutableStateOf(true) }
@@ -270,7 +294,13 @@ private fun PersonalizationBody() {
     Column(Modifier.padding(bottom = 32.dp)) {
         SettingsSectionLabel(stringResource(R.string.perso_theme_section), topPaddingExtra = 4.dp)
         SettingsCard {
-            ChipRow(options = themes, selected = selectedTheme, onSelect = { selectedTheme = it })
+            ThemeTilesRow(
+                selected = selectedTheme,
+                onSelect = { name ->
+                    selectedTheme = name
+                    onDarkThemePreference(name != "Light")
+                },
+            )
         }
 
         SettingsSectionLabel(stringResource(R.string.perso_accent_section))
@@ -339,6 +369,23 @@ private fun PersonalizationBody() {
             ) { showCallTimer = it }
             HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
             SettingsToggleRow(
+                stringResource(R.string.perso_call_recording),
+                stringResource(R.string.perso_call_recording_sub),
+                Icons.Default.FiberManualRecord,
+                Color(0xFFE53935),
+                callRecordingEnabled,
+            ) { next ->
+                callRecordingEnabled = next
+                CallRecordingPreferences.setEnabled(context, next)
+            }
+            Text(
+                stringResource(R.string.perso_incoming_full_screen_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = PhoniqTextSecondaryMock,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            SettingsToggleRow(
                 stringResource(R.string.perso_verified_badge),
                 stringResource(R.string.perso_verified_badge_sub),
                 Icons.Default.VerifiedUser,
@@ -360,7 +407,7 @@ private fun PersonalizationBody() {
             SettingsToggleRow(
                 stringResource(R.string.perso_rcs),
                 stringResource(R.string.perso_rcs_sub),
-                Icons.Default.Chat,
+                Icons.AutoMirrored.Filled.Chat,
                 Color(0xFF00A884),
                 rcsEnabled,
             ) { rcsEnabled = it }
@@ -422,7 +469,11 @@ private fun PersonalizationBody() {
 }
 
 @Composable
-private fun DataDeviceBody() {
+private fun DataDeviceBody(
+    onExportLocalDatabase: () -> Unit,
+    onRestoreLocalDatabase: () -> Unit,
+    onInformCloudBackup: () -> Unit,
+) {
     var autoBackup by remember { mutableStateOf(false) }
     var exportIncludeAmounts by remember { mutableStateOf(true) }
 
@@ -436,9 +487,39 @@ private fun DataDeviceBody() {
             onChange = { autoBackup = it },
         )
         SettingsDivider()
-        SettingsActionItem(label = "Backup now", sub = "Save all PhonIQ data to Drive")
+        SettingsActionItem(
+            label = stringResource(R.string.settings_export_db_title),
+            sub = stringResource(R.string.settings_export_db_sub),
+            onClick = onExportLocalDatabase,
+        )
         SettingsDivider()
-        SettingsActionItem(label = "Restore from Drive", sub = "Pick a backup file to restore")
+        SettingsActionItem(
+            label = stringResource(R.string.settings_restore_db_title),
+            sub = stringResource(R.string.settings_restore_db_sub),
+            onClick = onRestoreLocalDatabase,
+        )
+        SettingsDivider()
+        SettingsActionItem(
+            label = stringResource(R.string.settings_backup_now),
+            sub = stringResource(R.string.settings_backup_now_sub),
+            onClick = onInformCloudBackup,
+        )
+        SettingsDivider()
+        SettingsActionItem(
+            label = stringResource(R.string.settings_restore_drive),
+            sub = stringResource(R.string.settings_restore_drive_sub),
+            onClick = onInformCloudBackup,
+        )
+    }
+
+    SettingsSectionLabel(stringResource(R.string.settings_section_mms), topPaddingExtra = 4.dp)
+    SettingsCard {
+        Text(
+            stringResource(R.string.settings_mms_scope_body),
+            style = MaterialTheme.typography.bodySmall,
+            color = PhoniqTextSecondaryMock,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+        )
     }
 
     // ── Export ────────────────────────────────────────────────────────────
@@ -478,7 +559,7 @@ private fun DataDeviceBody() {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "100% offline · No Internet permission.\nAll data stays on your device.",
+                stringResource(R.string.settings_about_offline_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = PhoniqTextSecondaryMock,
             )
@@ -530,9 +611,18 @@ private fun SettingsNavRow(
     iconBrush: Brush,
     onClick: () -> Unit,
 ) {
+    val rowContentDescription =
+        remember(label, sub) {
+            "${label.takeIf { it.isNotBlank() } ?: ""}. ${sub.takeIf { it.isNotBlank() } ?: ""}".trim()
+        }
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) {
+                    contentDescription = rowContentDescription
+                },
         color = Color.Transparent,
         shape = RoundedCornerShape(0.dp),
     ) {
@@ -579,11 +669,20 @@ private fun SettingsToggleRow(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
 ) {
+    val toggleState =
+        stringResource(if (checked) R.string.cd_toggle_state_on else R.string.cd_toggle_state_off)
+    val rowContentDesc =
+        remember(label, sub, toggleState) {
+            "$label. $sub. $toggleState"
+        }
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = rowContentDesc
+                },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -611,12 +710,12 @@ private fun SettingsToggleRow(
                 modifier = Modifier.padding(top = 1.dp),
             )
         }
-        MockPhoniqToggle(checked, onChange)
+        PhoniqAccentSwitch(checked, onChange)
     }
 }
 
 @Composable
-private fun MockPhoniqToggle(
+private fun PhoniqAccentSwitch(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -638,6 +737,164 @@ private fun MockPhoniqToggle(
                 .clip(CircleShape)
                 .background(Color.White),
         )
+    }
+}
+
+private data class ThemeTileSpec(
+    val nameKey: String,
+    val previewBg: Color,
+    val accentBar: Color,
+    val row1: Color,
+    val row2: Color,
+    val labelBg: Color,
+    val labelFg: Color,
+)
+
+private val themeTileSpecs: List<ThemeTileSpec> =
+    listOf(
+        ThemeTileSpec(
+            "AMOLED",
+            Color(0xFF000000),
+            PhoniqAccent,
+            Color(0xFF222222),
+            Color(0xFF1A1A2A),
+            Color(0xFF000000),
+            Color(0xFF888888),
+        ),
+        ThemeTileSpec(
+            "Deep Dark",
+            Color(0xFF0A0A0F),
+            PhoniqAccent,
+            Color(0xFF252535),
+            Color(0xFF1E1E30),
+            Color(0xFF0A0A0F),
+            Color(0xFF888888),
+        ),
+        ThemeTileSpec(
+            "Dark Navy",
+            Color(0xFF080F1A),
+            Color(0xFF4499FF),
+            Color(0xFF152035),
+            Color(0xFF1A2840),
+            Color(0xFF080F1A),
+            Color(0xFF888888),
+        ),
+        ThemeTileSpec(
+            "Forest",
+            Color(0xFF081208),
+            Color(0xFF00C472),
+            Color(0xFF152515),
+            Color(0xFF1A2A1A),
+            Color(0xFF081208),
+            Color(0xFF888888),
+        ),
+        ThemeTileSpec(
+            "Wine",
+            Color(0xFF120808),
+            Color(0xFFFF6B9D),
+            Color(0xFF251515),
+            Color(0xFF2A1A1A),
+            Color(0xFF120808),
+            Color(0xFF888888),
+        ),
+        ThemeTileSpec(
+            "Light",
+            Color(0xFFF5F5FA),
+            PhoniqAccent,
+            Color(0xFFDDDDDD),
+            Color(0xFFE8E8F0),
+            Color(0xFFF5F5FA),
+            Color(0xFF555555),
+        ),
+    )
+
+@Composable
+private fun ThemeTilesRow(
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for (spec in themeTileSpecs) {
+            ThemeTileCard(spec = spec, selected = spec.nameKey == selected, onClick = { onSelect(spec.nameKey) })
+        }
+    }
+}
+
+@Composable
+private fun ThemeTileCard(
+    spec: ThemeTileSpec,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = Color.Transparent,
+        border =
+            BorderStroke(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) PhoniqAccent else PhoniqBorderSoft.copy(alpha = 0.85f),
+            ),
+    ) {
+        Column(
+            modifier = Modifier.width(76.dp).padding(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(spec.previewBg)
+                        .padding(5.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(0.62f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(spec.accentBar),
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth(0.92f)
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(spec.row1),
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth(0.72f)
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(spec.row2),
+                )
+            }
+            Text(
+                spec.nameKey,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = spec.labelFg,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(spec.labelBg)
+                        .padding(vertical = 4.dp, horizontal = 2.dp),
+            )
+        }
     }
 }
 
@@ -687,6 +944,7 @@ private fun AccentSwatchRow(colors: List<Color>, selected: Int, onSelect: (Int) 
                 .padding(bottom = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        val selectedAccentLabel = stringResource(R.string.cd_selected_accent_swatch)
         colors.forEachIndexed { index, color ->
             Box(
                 modifier =
@@ -705,7 +963,12 @@ private fun AccentSwatchRow(colors: List<Color>, selected: Int, onSelect: (Int) 
                 contentAlignment = Alignment.Center,
             ) {
                 if (selected == index) {
-                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = selectedAccentLabel,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp),
+                    )
                 }
             }
         }
@@ -736,7 +999,7 @@ private fun SettingsToggleItem(label: String, sub: String, checked: Boolean, onC
             Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = PhoniqOnBackground)
             Text(sub, fontSize = 11.sp, color = PhoniqTextSecondaryMock, modifier = Modifier.padding(top = 1.dp))
         }
-        MockPhoniqToggle(checked, onChange)
+        PhoniqAccentSwitch(checked, onChange)
     }
 }
 

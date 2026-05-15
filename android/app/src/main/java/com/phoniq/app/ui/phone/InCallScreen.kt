@@ -31,7 +31,7 @@ import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.SpeakerPhone
 import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.VolumeUp
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -44,18 +44,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phoniq.app.R
+import com.phoniq.app.ui.components.AvatarInitialsText
 import com.phoniq.app.ui.theme.PhoniqAccent
+import com.phoniq.app.util.startSmsCompose
 import com.phoniq.app.ui.theme.PhoniqOnBackground
 import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
 import kotlinx.coroutines.delay
@@ -72,6 +76,13 @@ private val OutgoingCallGradient =
 
 private val DialActionKeyColor = Color(0xFF1C1C2E)
 
+enum class InCallUiPhase {
+    /** Outgoing — show "Calling…", no elapsed timer. */
+    Dialing,
+    /** Connected — "In call" + timer. */
+    Active,
+}
+
 /**
  * Full-screen in-call UI (`phoniq-mockup-v1.html` `#screen-calling` outgoing chrome + action grid).
  */
@@ -79,18 +90,24 @@ private val DialActionKeyColor = Color(0xFF1C1C2E)
 fun InCallScreen(
     callerName: String,
     callerNumber: String,
+    phase: InCallUiPhase = InCallUiPhase.Active,
+    spamRiskLabel: String? = null,
+    isCallRecordingActive: Boolean = false,
+    canControlCallRecording: Boolean = true,
+    onToggleCallRecording: () -> Unit = {},
     onHangUp: () -> Unit,
     onUserMessage: (String) -> Unit = {},
 ) {
+    val context = LocalContext.current
     var elapsedSeconds by remember { mutableIntStateOf(0) }
     var muted by remember { mutableStateOf(false) }
     var speakerOn by remember { mutableStateOf(false) }
     var showDialpad by remember { mutableStateOf(false) }
     var holdOn by remember { mutableStateOf(false) }
-    var recordingOn by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        while (true) {
+    LaunchedEffect(phase) {
+        elapsedSeconds = 0
+        while (phase == InCallUiPhase.Active) {
             delay(1000L)
             elapsedSeconds++
         }
@@ -141,28 +158,45 @@ fun InCallScreen(
                 color = PhoniqTextSecondaryMock,
             )
 
+            if (spamRiskLabel != null) {
+                Text(
+                    text = spamRiskLabel,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFFF8F8F),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
             Spacer(Modifier.height(12.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.incall_status_in_call),
+                    text = stringResource(
+                        if (phase == InCallUiPhase.Dialing) R.string.incall_status_calling
+                        else R.string.incall_status_in_call,
+                    ),
                     fontSize = 14.sp,
                     color = Color(0xFFAAAAAA),
                 )
                 StatusDotPulse()
             }
 
-            Text(
-                text = formatDuration(elapsedSeconds),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Light,
-                letterSpacing = 3.sp,
-                fontFamily = FontFamily.Monospace,
-                color = PhoniqOnBackground,
-                modifier = Modifier.padding(top = 18.dp),
-            )
+            if (phase == InCallUiPhase.Active) {
+                Text(
+                    text = formatDuration(elapsedSeconds),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = 3.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = PhoniqOnBackground,
+                    modifier = Modifier.padding(top = 18.dp),
+                )
+            } else {
+                Spacer(Modifier.height(40.dp))
+            }
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -190,7 +224,7 @@ fun InCallScreen(
                             onClick = { showDialpad = true },
                         )
                         CallActionCell(
-                            icon = if (speakerOn) Icons.Filled.SpeakerPhone else Icons.Outlined.VolumeUp,
+                            icon = if (speakerOn) Icons.Filled.SpeakerPhone else Icons.AutoMirrored.Outlined.VolumeUp,
                             label = stringResource(R.string.incall_speaker),
                             active = speakerOn,
                             onClick = { speakerOn = !speakerOn },
@@ -204,8 +238,7 @@ fun InCallScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         val holdToastMsg = stringResource(R.string.toast_incall_hold)
-                        val recordToastMsg = stringResource(R.string.toast_incall_record)
-                        val smsToastMsg = stringResource(R.string.toast_incall_sms)
+                        val recordWhenActiveMsg = stringResource(R.string.toast_incall_record_when_active)
                         CallActionCell(
                             icon = Icons.Filled.Pause,
                             label = stringResource(R.string.incall_hold),
@@ -218,17 +251,25 @@ fun InCallScreen(
                         CallActionCell(
                             icon = Icons.Filled.FiberManualRecord,
                             label = stringResource(R.string.incall_record),
-                            active = recordingOn,
+                            active = isCallRecordingActive,
+                            contentDimmed = !canControlCallRecording,
                             onClick = {
-                                recordingOn = !recordingOn
-                                onUserMessage(recordToastMsg)
+                                if (!canControlCallRecording) {
+                                    onUserMessage(recordWhenActiveMsg)
+                                } else {
+                                    onToggleCallRecording()
+                                }
                             },
                         )
                         CallActionCell(
                             icon = Icons.AutoMirrored.Filled.Message,
                             label = stringResource(R.string.incall_sms),
                             active = false,
-                            onClick = { onUserMessage(smsToastMsg) },
+                            onClick = {
+                                if (!context.startSmsCompose(callerNumber)) {
+                                    onUserMessage(context.getString(R.string.snackbar_no_sms_app))
+                                }
+                            },
                         )
                     }
                 }
@@ -324,7 +365,7 @@ private fun StatusDotPulse() {
 }
 
 @Composable
-private fun CallerAvatar(name: String) {
+internal fun CallerAvatar(name: String) {
     val initials =
         name.trim()
             .split(" ")
@@ -345,9 +386,8 @@ private fun CallerAvatar(name: String) {
                     ),
                 ),
     ) {
-        Text(
+        AvatarInitialsText(
             text = initials.ifEmpty { "?" },
-            color = Color.White,
             fontSize = 38.sp,
             fontWeight = FontWeight.Bold,
         )
@@ -359,6 +399,7 @@ private fun CallActionCell(
     icon: ImageVector,
     label: String,
     active: Boolean,
+    contentDimmed: Boolean = false,
     onClick: () -> Unit,
 ) {
     Column(
@@ -367,6 +408,7 @@ private fun CallActionCell(
         modifier =
             Modifier
                 .size(width = 72.dp, height = 76.dp)
+                .alpha(if (contentDimmed) 0.45f else 1f)
                 .clickable(
                     indication = ripple(),
                     interactionSource = remember { MutableInteractionSource() },

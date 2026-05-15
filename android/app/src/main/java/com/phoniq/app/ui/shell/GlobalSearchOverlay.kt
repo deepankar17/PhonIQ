@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.phoniq.app.R
+import com.phoniq.app.ui.components.AvatarInitialsText
 import com.phoniq.app.ui.components.MockupSectionLabel
 import com.phoniq.app.ui.theme.PhoniqAccent
 import com.phoniq.app.ui.theme.PhoniqBackground
@@ -65,14 +66,30 @@ private data class SearchHit(
     val moneyAmount: String? = null,
     val avatarStartArgb: Long,
     val avatarEndArgb: Long,
+    /** [MessageThread.id] when [kind] is Messages. */
+    val messageThreadId: String? = null,
+    /** PSTN digits / formatted number when [kind] is Calls. */
+    val dialNumber: String? = null,
 )
 
 @Composable
-fun GlobalSearchOverlay(onDismiss: () -> Unit) {
+fun GlobalSearchOverlay(
+    onDismiss: () -> Unit,
+    recentCalls: List<com.phoniq.app.data.model.RecentCall> = emptyList(),
+    messageThreads: List<com.phoniq.app.data.model.MessageThread> = emptyList(),
+    moneyTransactions: List<com.phoniq.app.data.model.RecentTransaction> = emptyList(),
+    onDialNumber: (String) -> Unit = {},
+    onOpenMessageThread: (String) -> Unit = {},
+    onGoToMoney: () -> Unit = {},
+) {
     var query by remember { mutableStateOf("") }
+    val baseHits =
+        remember(recentCalls, messageThreads, moneyTransactions) {
+            buildSearchHits(recentCalls, messageThreads, moneyTransactions)
+        }
     val hits =
-        remember(query) {
-            sampleHits.filter {
+        remember(query, baseHits) {
+            baseHits.filter {
                 query.isBlank() ||
                     it.title.contains(query, ignoreCase = true) ||
                     it.subtitle.contains(query, ignoreCase = true)
@@ -135,7 +152,7 @@ fun GlobalSearchOverlay(onDismiss: () -> Unit) {
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Search,
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.cd_search),
                                 tint = PhoniqTextSecondaryMock,
                             )
                         },
@@ -179,9 +196,21 @@ fun GlobalSearchOverlay(onDismiss: () -> Unit) {
                             ) { hit ->
                                 Column(Modifier.fillMaxWidth()) {
                                     when (hit.kind) {
-                                        "Money" -> SearchMoneyRow(hit)
-                                        "Messages" -> SearchMessageRow(hit)
-                                        else -> SearchCallRow(hit)
+                                        "Money" -> SearchMoneyRow(hit, onClick = onGoToMoney)
+                                        "Messages" ->
+                                            SearchMessageRow(
+                                                hit,
+                                                onClick = {
+                                                    hit.messageThreadId?.let(onOpenMessageThread)
+                                                },
+                                            )
+                                        else ->
+                                            SearchCallRow(
+                                                hit,
+                                                onClick = {
+                                                    hit.dialNumber?.let(onDialNumber)
+                                                },
+                                            )
                                     }
                                     HorizontalDivider(color = PhoniqBorderSoft.copy(alpha = 0.85f), thickness = 1.dp)
                                 }
@@ -205,30 +234,33 @@ private fun sectionTitle(kind: String): String {
 }
 
 @Composable
-private fun SearchCallRow(hit: SearchHit) {
+private fun SearchCallRow(
+    hit: SearchHit,
+    onClick: () -> Unit,
+) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { }
+                .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val g0 = Color(hit.avatarStartArgb.toInt())
         val g1 = Color(hit.avatarEndArgb.toInt())
+        val initial = hit.title.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
         Box(
             modifier =
                 Modifier
-                    .size(44.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .background(Brush.linearGradient(listOf(g0, g1))),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                hit.title.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                color = Color.White,
+            AvatarInitialsText(
+                text = initial,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
             )
         }
         Column(modifier = Modifier.padding(start = 14.dp)) {
@@ -244,30 +276,33 @@ private fun SearchCallRow(hit: SearchHit) {
 }
 
 @Composable
-private fun SearchMessageRow(hit: SearchHit) {
+private fun SearchMessageRow(
+    hit: SearchHit,
+    onClick: () -> Unit,
+) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { }
+                .clickable(onClick = onClick)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val g0 = Color(hit.avatarStartArgb.toInt())
         val g1 = Color(hit.avatarEndArgb.toInt())
+        val initial = hit.title.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
         Box(
             modifier =
                 Modifier
-                    .size(46.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .background(Brush.linearGradient(listOf(g0, g1))),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                hit.title.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                color = Color.White,
+            AvatarInitialsText(
+                text = initial,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
             )
         }
         Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
@@ -309,12 +344,15 @@ private fun SearchMessageRow(hit: SearchHit) {
 }
 
 @Composable
-private fun SearchMoneyRow(hit: SearchHit) {
+private fun SearchMoneyRow(
+    hit: SearchHit,
+    onClick: () -> Unit,
+) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { }
+                .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -346,68 +384,47 @@ private fun SearchMoneyRow(hit: SearchHit) {
     }
 }
 
-private val sampleHits =
-    listOf(
-        SearchHit(
-            title = "Priya Sharma",
-            subtitle = "+91 98765 43210",
-            kind = "Calls",
-            avatarStartArgb = 0xFF8C5FE8L,
-            avatarEndArgb = 0xFF6C63FFL,
-        ),
-        SearchHit(
-            title = "HDFC Bank",
-            subtitle = "1800 267 6161",
-            kind = "Calls",
-            avatarStartArgb = 0xFF1A6FD4L,
-            avatarEndArgb = 0xFF0D4FA8L,
-        ),
-        SearchHit(
-            title = "Rahul Verma",
-            subtitle = "Outgoing video · Sun",
-            kind = "Calls",
-            avatarStartArgb = 0xFFE87D20L,
-            avatarEndArgb = 0xFFC45A00L,
-        ),
-        SearchHit(
-            title = "Priya Sharma",
-            subtitle = "Are you coming to the office tomorrow?",
-            kind = "Messages",
-            timeLabel = "9:15",
-            showRcsPill = true,
-            avatarStartArgb = 0xFF8C5FE8L,
-            avatarEndArgb = 0xFF6C63FFL,
-        ),
-        SearchHit(
-            title = "HDFCBK",
-            subtitle = "INR 2,450 debited at BLINKIT",
-            kind = "Messages",
-            avatarStartArgb = 0xFF1A6FD4L,
-            avatarEndArgb = 0xFF0D4FA8L,
-        ),
-        SearchHit(
-            title = "VM-VFSOTP",
-            subtitle = "OTP 482910 · valid 3 min",
-            kind = "Messages",
-            avatarStartArgb = 0xFF607D8BL,
-            avatarEndArgb = 0xFF455A64L,
-        ),
-        SearchHit(
-            title = "Swiggy",
-            subtitle = "Food · HDFC XX4521",
-            kind = "Money",
-            moneyEmoji = "🍔",
-            moneyAmount = "-₹2,450",
-            avatarStartArgb = 0L,
-            avatarEndArgb = 0L,
-        ),
-        SearchHit(
-            title = "Food & dining",
-            subtitle = "₹8,420 this month · sample",
-            kind = "Money",
-            moneyEmoji = "🍽",
-            moneyAmount = "",
-            avatarStartArgb = 0L,
-            avatarEndArgb = 0L,
-        ),
-    )
+private fun buildSearchHits(
+    recentCalls: List<com.phoniq.app.data.model.RecentCall>,
+    messageThreads: List<com.phoniq.app.data.model.MessageThread>,
+    moneyTransactions: List<com.phoniq.app.data.model.RecentTransaction>,
+): List<SearchHit> {
+    val calls =
+        recentCalls.take(40).map { c ->
+            SearchHit(
+                title = c.contactName,
+                subtitle = c.numberOrLabel,
+                kind = "Calls",
+                timeLabel = c.timeLabel,
+                avatarStartArgb = c.avatarStartArgb,
+                avatarEndArgb = c.avatarEndArgb,
+                dialNumber = c.numberOrLabel,
+            )
+        }
+    val msgs =
+        messageThreads.take(40).map { t ->
+            SearchHit(
+                title = t.title,
+                subtitle = t.snippet,
+                kind = "Messages",
+                timeLabel = t.timeLabel,
+                showRcsPill = t.showRcsBadge,
+                avatarStartArgb = t.avatarStartArgb,
+                avatarEndArgb = t.avatarEndArgb,
+                messageThreadId = t.id,
+            )
+        }
+    val money =
+        moneyTransactions.take(40).map { x ->
+            SearchHit(
+                title = x.merchant,
+                subtitle = x.dateLine,
+                kind = "Money",
+                moneyEmoji = x.emoji,
+                moneyAmount = x.amountLabel,
+                avatarStartArgb = 0xFF6C63FFL,
+                avatarEndArgb = 0xFF4A43CCL,
+            )
+        }
+    return calls + msgs + money
+}

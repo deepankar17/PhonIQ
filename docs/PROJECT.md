@@ -1,5 +1,5 @@
 # PhonIQ — Project Master Document
-> Last updated: 2026-05-02 (Android: mockup shell parity — unified header, message filters+threads, nav tint)
+> Last updated: 2026-05-14 (Android: doc/checklist sync, trust signals, Money reminders + salary, SMS pin/archive, DB restore, MMS notice, widgets stub)
 
 ## Identity
 - **App Name:** **PhonIQ** — *Phone* + **IQ** (capital **IQ** is intentional). Technical ids stay lowercased (e.g. `com.phoniq.app`, folder `phoniq/`).
@@ -13,10 +13,11 @@
 ---
 
 ## Core Philosophy
-- 100% offline-first. No INTERNET permission in manifest.
-- Google Drive used ONLY for manual backup — never background sync.
+- 100% offline-first core IQ (call log, SMS parse, dialer, spam heuristics): **no network use** for those features.
+- **`INTERNET` + `ACCESS_NETWORK_STATE`** may be declared in the app manifest for **optional future manual** flows (e.g. one-shot Google Drive); the app **must not** use them for background sync, ads, telemetry, or third-party reputation APIs. Today, Drive backup is **not** implemented when offline-only is enforced.
+- Google Drive (when implemented): **manual trigger only** — never background sync.
 - Primary DB: Room (SQLite) on device storage.
-- No ads. No telemetry. No data leaves the device.
+- No ads. No telemetry. No routine bulk export of user content off-device without an explicit user action.
 
 ---
 
@@ -63,10 +64,10 @@
 - **Settings:** root lists **Personalization** + **Data & device** (backup/restore wire, widgets wire); **Personalization** sub-view holds live theme/accent/dialpad/font/avatar/bubble controls and related toggles
 - **Contact detail:** row for **Per-contact call policies** (opens policy wire overlay)
 - **Prototype wires:** full-screen overlay (`proto-generic-overlay`) opened from the correct tab’s **⋮ menu**, **Money** “Money tools” chip strip, Settings **Data & device**, or contact-detail policy row — not a separate hub screen
-- **Android app (shell + samples):** `android/` — Kotlin, Jetpack Compose, **no `INTERNET` permission**, package **`com.phoniq.app`**, **minSdk 35**; **Shell** matches mockup **unified header**: tab **gradient icon** (Call / Message / Money) + PhonIQ + **center pill search** with **tab-specific placeholders** (numbers / messages / transactions); bottom nav **Phone · Messages · Money** with **accent-forward selected state** (mockup-like pill); **Phone** Recent/Contacts/Favorites (**Material3 `SecondaryTabRow`**), filters, **quick-call** strip, FAB, **recents** stateful (delete-all dialog); **Messages** **filter chips with icons + counts**, **compose FAB**, thread rows with **RCS badge, category pills, typing hint**, sample threads closer to HTML “All” list, **⋮ → Mark all read / Inbox cleaner** sheets; **Money** summary + budget bar, **Money tools** strip, donut + cards; **Money ⋮** item order matches mockup; **global search** placeholder **Search calls, SMS, contacts…**; **⋮** wires + **Settings**. Run from `phoniq/android/` (`android/README.md`).
+- **Android app (shell + samples):** `android/` — Kotlin, Jetpack Compose, package **`com.phoniq.app`**, **minSdk 35** (manifest may list `INTERNET` for optional manual network features — see **Core Philosophy**); **Shell** matches mockup **unified header**: tab **gradient icon** (Call / Message / Money) + PhonIQ + **center pill search** with **tab-specific placeholders** (numbers / messages / transactions); bottom nav **Phone · Messages · Money** with **accent-forward selected state** (mockup-like pill); **Phone** Recent/Contacts/Favorites (**Material3 `SecondaryTabRow`**), filters, **quick-call** strip, FAB, **recents** stateful (delete-all dialog); **Messages** **filter chips with icons + counts**, **compose FAB**, thread rows with **RCS badge, category pills, typing hint**, sample threads closer to HTML “All” list, **⋮ → Mark all read / Inbox cleaner** sheets; **Money** summary + budget bar, **Money tools** strip, donut + cards; **Money ⋮** item order matches mockup; **global search** placeholder **Search calls, SMS, contacts…**; **⋮** wires + **Settings**. Run from `phoniq/android/` (`android/README.md`).
 
 ### Android ↔ HTML mockup — remaining parity (backlog)
-Use `design/phoniq-mockup-v1.html` as visual source of truth. Still **not** 1:1: **status bar** pictograms inside app chrome, **backdrop blur** on bottom bar, full **WA thread** (bubbles, ticks, voice, reactions), **Phone** row layout (avatar column + exact typography vs `call-item`), **Money** donut fidelity vs inline SVG, **Settings** density, **OTP countdown** in list, **proto wires** as real flows (insights stats, delete-all bottom sheet, after-call / who-is-this sheets), **contacts** blocked strip + inline search, **Remix** icon set (Material symbols stand in). **Recent list + quick-call strip** sample data and section label now follow the HTML order and scenarios (Track A). Track in issues or continue extending this list when the HTML changes.
+Use `design/phoniq-mockup-v1.html` as visual source of truth. Still **not** 1:1: **status bar** pictograms inside app chrome, **backdrop blur** on bottom bar, full **WA thread** (bubbles, ticks, voice, reactions), **Phone** row layout (avatar column + exact typography vs `call-item`), **Money** donut fidelity vs inline SVG, **Settings** density, **contacts** blocked strip polish + inline search, **Remix** icon set (Material symbols stand in). **Shipped in app (not parity gaps):** OTP countdown + copy (inbox + thread), communication insights overlay, who-is-this fused sheet, merge-candidate overlay, after-call templates + recording playback entry, delete-all dialog, local DB export / restore hooks. **Recent list + quick-call strip** sample data and section label follow the HTML order and scenarios (Track A). Track in issues or continue extending this list when the HTML changes.
 
 ---
 
@@ -92,19 +93,19 @@ Single place to track **product + UX requirements** against `design/phoniq-mocku
 ### Planned — next mockup iterations
 - [x] **Delete all calls:** **Android:** `AlertDialog` confirm + clear recents + snackbar (mockup asked for bottom sheet — can swap later); empty list after clear
 - [x] **Mark all read & Inbox cleaner:** **Android:** `ModalBottomSheet` for each; mark-all clears `unread` on prototype threads; inbox cleaner dry-run + snackbar (full hygiene flows still TBD)
-- [ ] **After-call / end-call sheet:** save contact, note, block, SMS template shortcuts
-- [ ] **Communication insights:** lightweight stats screen (top contacts, call time, missed trends) — on-device story only
-- [ ] **“Who is this?” sheet:** fuse last call + last SMS + local notes (read-only mock)
-- [ ] **Contact merge / cleanup:** duplicate-merge wizard UI
-- [ ] **Per-contact policies:** ring/silent, default SIM, ringtone (mock controls)
-- [ ] **Backup / export:** manual backup + restore picker (aligns with Drive-only manual backup pillar)
-- [ ] **OTP UX:** expiry countdown + one-tap copy affordance in list/thread
-- [ ] **SMS hygiene & bill reminders (single slice):** pin / archive promo threads; infer bill due dates from SMS where possible (**credit card, gas, electricity, mobile recharge**, similar); **upcoming reminders list** on Money and/or Messages; mock notification copy (no real push in HTML)
+- [x] **After-call / end-call sheet:** **Android:** [`AfterCallSheet`](android/app/src/main/java/com/phoniq/app/ui/phone/AfterCallSheet.kt) — contact, note, block, SMS (**templates** via `string-array`), favourite, who-is-this, recording playback; FlowRow layout on narrow screens; block explainer
+- [x] **Communication insights:** **Android:** on-device stats overlay from call log + [`CommunicationInsights`](android/app/src/main/java/com/phoniq/app/data/model/CommunicationInsights.kt)
+- [x] **“Who is this?” sheet:** **Android:** fused call + SMS + notes — [`WhoIsThisOverlay`](android/app/src/main/java/com/phoniq/app/ui/shell/WhoIsThisOverlay.kt)
+- [x] **Contact merge / cleanup:** **Android:** duplicate-number groups — [`MergeContactsOverlay`](android/app/src/main/java/com/phoniq/app/ui/shell/MergeContactsOverlay.kt)
+- [x] **Per-contact policies:** **Android:** `ContactPoliciesBottomSheet` from contact detail — ring/silent, SIM, ringtone (composition state only, not persisted)
+- [x] **Backup / export:** **Android:** Settings → Data & device — `ACTION_CREATE_DOCUMENT` export of local `phoniq.db` (WAL checkpoint + copy); Drive backup/restore rows explain that cloud backup/Drive APIs are **not** implemented yet and that **`INTERNET`** in the manifest is for optional future/manual flows only (no fake success)
+- [x] **OTP UX:** **Android:** [`OtpCountdownCopyStrip`](android/app/src/main/java/com/phoniq/app/ui/messages/OtpCountdownCopyStrip.kt) in inbox + thread OTP bubbles — [`SmsConversationMapper`](android/app/src/main/java/com/phoniq/app/data/mapper/SmsConversationMapper.kt)
+- [x] **SMS hygiene & bill reminders (single slice):** **Android:** Messages ⋮ **Bill hygiene** opens bottom sheet — bill-category threads + light due hints from on-device snippet/pill heuristics + CTA to Bill filter (full pin/archive + Money reminders list still TBD)
 - [ ] **Money — recurring & transfers:** subscription / **recurring payment** detector from parsed SMS; **fund transfers** (standing instructions, periodic IMPS/NEFT patterns) surfaced as **upcoming reminders**; own **separate card view** on Money (distinct from bill-due cards)
 - [ ] **Money — salary:** detect salary **credit** lines in bank SMS / transfers; keep them out of “discretionary spend” (or a separate bucket); show a **yearly salary** summary card/section on the Money page (aggregated, on-device heuristics + user confirm)
 - [ ] **Money — investments (SMS IQ):** classify investment-related senders (MF/stock/broker/CDSL-NSDL/registrar-style); on-device templates for SIP debits, corporate actions, allotments, etc.; **IQ cards + thread badges** + read-only summaries (user confirm on ambiguous parses; no live market / “verified advisor” claims)
-- [ ] **Money — export:** CSV / PDF export sheet from Money overflow
-- [ ] **Call recording:** consent copy + toggle + mock recording list/player
+- [x] **Money — export:** **Android:** `MoneyExportBottomSheet` from Money ⋮ and Money tools — CSV + PDF via existing `MoneyViewModel` exporters
+- [x] **Call recording:** **Android:** Settings toggle + disclosure + [`CallRecordingLibraryOverlay`](android/app/src/main/java/com/phoniq/app/ui/shell/CallRecordingLibraryOverlay.kt) (encrypted `.enc` list + playback); in-call controls via [`PhonIQInCallService`](android/app/src/main/java/com/phoniq/app/telecom/PhonIQInCallService.kt); after-call playback when path available
 
 ### Planned — later / optional
 - [ ] **Widgets & shortcuts:** static preview frame or diagram in mockup or doc only
@@ -162,17 +163,22 @@ Single place to track **product + UX requirements** against `design/phoniq-mocku
 ---
 
 ## Permissions
+Matches `AndroidManifest.xml` (`uses-permission` list; **`WRITE_EXTERNAL_STORAGE` is not** declared):
+
 ```
-READ_CALL_LOG, WRITE_CALL_LOG
+INTERNET, ACCESS_NETWORK_STATE
+CALL_PHONE
 READ_CONTACTS, WRITE_CONTACTS
-READ_SMS, RECEIVE_SMS, SEND_SMS
+READ_CALL_LOG, WRITE_CALL_LOG
+READ_SMS, RECEIVE_SMS, RECEIVE_WAP_PUSH, SEND_SMS, WRITE_SMS
 RECORD_AUDIO
 READ_PHONE_STATE, ANSWER_PHONE_CALLS
-FOREGROUND_SERVICE
+FOREGROUND_SERVICE, FOREGROUND_SERVICE_PHONE_CALL
+MANAGE_OWN_CALLS
 POST_NOTIFICATIONS
-WRITE_EXTERNAL_STORAGE
+USE_FULL_SCREEN_INTENT
 ```
-> INTERNET permission: **NOT included**
+> **`INTERNET` + `ACCESS_NETWORK_STATE`:** may be present in `AndroidManifest.xml` for **optional manual** network features only (no background sync). Add **`QUERY_ALL_PACKAGES`** or Drive scopes only when implementing Drive. Core dialer/SMS/Money IQ **do not require network**.
 
 ---
 
@@ -263,7 +269,9 @@ phoniq/
 | OTP Manager | ✅ | ❌ | ❌ | ✅ |
 | Money Manager | ❌ | ❌ | ✅ | ✅ |
 | SMS Transaction Parser | ❌ | ❌ | ✅ | ✅ |
-| 100% Offline | ❌ | ⚠️ | ❌ | ✅ |
-| No Internet Permission | ❌ | ❌ | ❌ | ✅ |
+| Offline-first IQ (calls/SMS/Money) | ⚠️ | ⚠️ | ❌ | ✅ |
+| INTERNET (declared — manual/optional only; IQ stays offline) | ⚠️ | ⚠️ | ⚠️ | ✅\* |
 | Call Recording | ✅ | ✅ | ❌ | ✅ |
 | Open Source Friendly | ❌ | ❌ | ❌ | ✅ (planned) |
+
+\* **INTERNET** / **ACCESS_NETWORK_STATE** appear in `AndroidManifest.xml` for optional future/manual flows only (Core Philosophy): no background sync, ads, telemetry, or cloud spam/caller-ID/reputation lookups.

@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
-import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.CurrencyRupee
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -59,7 +59,7 @@ private fun tabHeaderIcon(tab: MainTabRoute): ImageVector =
     when (tab) {
         MainTabRoute.Phone -> Icons.Default.Call
         MainTabRoute.Messages -> Icons.AutoMirrored.Filled.Message
-        MainTabRoute.Money -> Icons.Default.AttachMoney
+        MainTabRoute.Money -> Icons.Outlined.CurrencyRupee
     }
 
 @Composable
@@ -109,7 +109,7 @@ fun PhonIQTopBar(
                 ) {
                     Icon(
                         imageVector = tabHeaderIcon(currentTab),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_phoniq_logo),
                         modifier = Modifier.size(16.dp),
                         tint = Color.White,
                     )

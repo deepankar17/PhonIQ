@@ -8,6 +8,7 @@ import com.phoniq.app.data.db.entity.BudgetEntity
 import com.phoniq.app.data.db.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 class TransactionRepository(
     private val transactionDao: TransactionDao,
@@ -26,32 +27,32 @@ class TransactionRepository(
     fun netBalanceForAccount(accountId: Long): Flow<Double> =
         transactionDao.netBalanceForAccount(accountId)
 
-    fun budgetsForCurrentMonth(): Flow<List<BudgetEntity>> =
-        budgetDao.observeForMonth(currentMonthYear())
+    fun budgetsForMonth(monthYear: String): Flow<List<BudgetEntity>> =
+        budgetDao.observeForMonth(monthYear)
 
     private val monthFormatter = DateTimeFormatter.ofPattern("yyyy-MM")
 
-    private fun currentMonthYear(): String = LocalDate.now().format(monthFormatter)
+    fun monthYearKey(year: Int, month: Int): String =
+        LocalDate.of(year, month, 1).format(monthFormatter)
 
-    fun currentMonthEpochRange(): Pair<Long, Long> {
-        val now = LocalDate.now()
-        val startOfMonth = now.withDayOfMonth(1).atStartOfDay()
-            .toInstant(java.time.ZoneOffset.UTC).toEpochMilli()
-        val endOfMonth = now.withDayOfMonth(now.lengthOfMonth())
-            .atTime(23, 59, 59)
-            .toInstant(java.time.ZoneOffset.UTC).toEpochMilli()
-        return startOfMonth to endOfMonth
+    /** Inclusive start, inclusive end — uses system default zone for transaction `date` epoch millis. */
+    fun monthEpochRangeFor(year: Int, month: Int): Pair<Long, Long> {
+        val zone = ZoneId.systemDefault()
+        val first = LocalDate.of(year, month, 1)
+        val start = first.atStartOfDay(zone).toInstant().toEpochMilli()
+        val last = first.withDayOfMonth(first.lengthOfMonth())
+        val end = last.atTime(23, 59, 59, 999_000_000).atZone(zone).toInstant().toEpochMilli()
+        return start to end
     }
 
     suspend fun addTransaction(txn: TransactionEntity) = transactionDao.insert(txn)
 
-    suspend fun setBudget(category: String, limitRupees: Double) {
-        val month = currentMonthYear()
-        val existing = budgetDao.findByCategoryAndMonth(category, month)
+    suspend fun setBudget(category: String, limitRupees: Double, monthYear: String) {
+        val existing = budgetDao.findByCategoryAndMonth(category, monthYear)
         if (existing != null) {
             budgetDao.update(existing.copy(monthlyLimit = limitRupees))
         } else {
-            budgetDao.insert(BudgetEntity(category = category, monthlyLimit = limitRupees, monthYear = month))
+            budgetDao.insert(BudgetEntity(category = category, monthlyLimit = limitRupees, monthYear = monthYear))
         }
     }
 }

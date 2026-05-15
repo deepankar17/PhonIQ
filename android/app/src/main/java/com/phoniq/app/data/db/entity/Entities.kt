@@ -14,6 +14,9 @@ data class ContactEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val number: String,
+    /** Android ContactsContract row id for loading [android.provider.ContactsContract.Contacts] photo. */
+    @ColumnInfo(name = "device_contact_id") val deviceContactId: Long = 0L,
+    @ColumnInfo(name = "is_starred") val isStarred: Boolean = false,
     val tag: String? = null,
     @ColumnInfo(name = "spam_score") val spamScore: Int = 0,
     val notes: String? = null,
@@ -44,6 +47,11 @@ data class CallLogEntity(
     val timestamp: Long,
     val notes: String? = null,
     @ColumnInfo(name = "recording_path") val recordingPath: String? = null,
+    /**
+     * "PSTN" | "WHATSAPP_VOICE" | "WHATSAPP_VIDEO" — from system call log provider
+     * ([android.provider.CallLog.Calls] phone account / features).
+     */
+    @ColumnInfo(name = "call_channel") val callChannel: String = "PSTN",
 )
 
 // ---------------------------------------------------------------------------
@@ -62,6 +70,8 @@ data class SmsMessageEntity(
     @ColumnInfo(name = "is_otp") val isOtp: Boolean = false,
     @ColumnInfo(name = "is_spam") val isSpam: Boolean = false,
     @ColumnInfo(name = "is_read") val isRead: Boolean = false,
+    @ColumnInfo(name = "is_pinned") val isPinned: Boolean = false,
+    @ColumnInfo(name = "is_archived") val isArchived: Boolean = false,
 )
 
 // ---------------------------------------------------------------------------

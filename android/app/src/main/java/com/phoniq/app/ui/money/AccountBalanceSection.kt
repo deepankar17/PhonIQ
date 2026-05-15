@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.phoniq.app.ui.components.AvatarInitialsText
 import com.phoniq.app.ui.theme.PhoniqAccent
 import com.phoniq.app.ui.theme.PhoniqBorder
 import com.phoniq.app.ui.theme.PhoniqSecondary
@@ -89,11 +90,10 @@ private fun AccountBalanceCard(acct: AccountBalance) {
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        initials,
+                    AvatarInitialsText(
+                        text = initials,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
                     )
                 }
                 Spacer(Modifier.width(8.dp))

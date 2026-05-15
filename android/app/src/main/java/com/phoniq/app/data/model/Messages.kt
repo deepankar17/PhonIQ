@@ -10,6 +10,7 @@ enum class MessageThreadCategory {
     Delivery,
     Travel,
     Spam,
+    Archived,
 }
 
 data class MessageThread(
@@ -18,6 +19,8 @@ data class MessageThread(
     val snippet: String,
     val timeLabel: String,
     val unread: Boolean,
+    /** Number of SMS in this thread with [com.phoniq.app.data.db.entity.SmsMessageEntity.isRead] == false when threads were built. */
+    val unreadCount: Int = 0,
     val categories: Set<MessageThreadCategory>,
     /** List-row avatar gradient (`wa-thread-avatar` in mockup). */
     val avatarStartArgb: Long = 0xFF6C63FFL,
@@ -36,13 +39,44 @@ data class MessageThread(
     val listTypingHint: Boolean = false,
     /** Extracted OTP code for list-row countdown+copy strip (null = no strip). */
     val otpCode: String? = null,
-    /** Initial seconds for the OTP countdown chip (default 10 min). */
-    val otpExpiresSeconds: Int = 600,
+    /** Wall-clock expiry for the OTP in the list row (`sms.timestamp + ttl`). */
+    val otpExpiresAtEpochMillis: Long? = null,
+    val lastTimestamp: Long = 0L,
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false,
 )
 
 fun MessageThread.matches(category: MessageThreadCategory): Boolean =
     when (category) {
-        MessageThreadCategory.All -> true
-        MessageThreadCategory.Unread -> unread
-        else -> category in categories
+        MessageThreadCategory.All -> !isArchived
+        MessageThreadCategory.Archived -> isArchived
+        MessageThreadCategory.Unread -> unread && !isArchived
+        MessageThreadCategory.Personal -> !isArchived && MessageThreadCategory.Personal in categories
+        MessageThreadCategory.Transaction -> !isArchived && MessageThreadCategory.Transaction in categories
+        MessageThreadCategory.Otp -> !isArchived && MessageThreadCategory.Otp in categories
+        MessageThreadCategory.Bill -> !isArchived && MessageThreadCategory.Bill in categories
+        MessageThreadCategory.Delivery -> !isArchived && MessageThreadCategory.Delivery in categories
+        MessageThreadCategory.Travel -> !isArchived && MessageThreadCategory.Travel in categories
+        MessageThreadCategory.Spam -> !isArchived && MessageThreadCategory.Spam in categories
     }
+
+/** On-device hint for bill hygiene UI (pills, badges, or light keyword scan on [snippet]). */
+fun MessageThread.billDueHintLabel(): String? {
+    rowPills.firstOrNull { pill ->
+        pill.contains("due", ignoreCase = true) || pill.contains("overdue", ignoreCase = true)
+    }?.let { return it.trim() }
+    subtitleBadge?.takeIf { badge ->
+        badge.contains("due", ignoreCase = true) || badge.contains("bill", ignoreCase = true)
+    }?.let { return it.trim() }
+    val s = snippet.trim()
+    if (s.isEmpty()) return null
+    val lower = s.lowercase()
+    if ("due" in lower || "outstanding" in lower || "bill" in lower && anyBillKeyword(lower)) {
+        return s.lineSequence().first().take(72).trim()
+    }
+    return null
+}
+
+private fun anyBillKeyword(lower: String): Boolean =
+    listOf("electric", "utility", "rent", "recharge", "postpaid", "broadband", "gas", "credit card")
+        .any { it in lower }

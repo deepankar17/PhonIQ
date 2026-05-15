@@ -29,11 +29,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -45,9 +53,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.phoniq.app.R
-import com.phoniq.app.data.SampleData
+import com.phoniq.app.data.db.entity.CallLogEntity
+import com.phoniq.app.data.mapper.toContactHistoryEntry
 import com.phoniq.app.data.model.ContactHistoryEntry
 import com.phoniq.app.data.model.ContactRow
+import com.phoniq.app.data.model.effectivePhoneNumbers
 import com.phoniq.app.ui.components.MockupSectionLabel
 import com.phoniq.app.ui.theme.PhoniqAccent
 import com.phoniq.app.ui.theme.PhoniqBackground
@@ -57,6 +67,12 @@ import com.phoniq.app.ui.theme.PhoniqOnBackground
 import com.phoniq.app.ui.theme.PhoniqSecondary
 import com.phoniq.app.ui.theme.PhoniqSurface
 import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
+import com.phoniq.app.ui.components.AvatarInitialsText
+import com.phoniq.app.ui.components.ContactPhotoAvatar
+import com.phoniq.app.util.normalizePhoneKey
+import com.phoniq.app.util.openBlockedNumbersSettings
+import com.phoniq.app.util.startDialer
+import com.phoniq.app.util.startSmsCompose
 
 /**
  * Full-screen contact profile aligned with `design/phoniq-mockup-v1.html` `#view-contact`.
@@ -64,12 +80,48 @@ import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
 @Composable
 fun ContactDetailOverlay(
     contact: ContactRow,
+    phoneViewModel: PhoneViewModel,
     onDismiss: () -> Unit,
     onUserMessage: (String) -> Unit,
+    onOpenContactPolicies: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val history = remember(contact.id) { SampleData.contactHistory(contact.id) }
-    val numberLine = contact.detailNumber ?: contact.subtitle
+    val displayNumbers = remember(contact) { contact.effectivePhoneNumbers() }
+    val primaryLine = displayNumbers.firstOrNull().orEmpty()
+    val normalizedKeysForHistory =
+        remember(displayNumbers) {
+            displayNumbers.map { normalizePhoneKey(it) }.filter { it.isNotEmpty() }.toSet()
+        }
+    val spamKeys by phoneViewModel.spamNumberKeysState.collectAsState()
+    val trustedKeys by phoneViewModel.userTrustedNumberKeys.collectAsState()
+    val normKey = remember(primaryLine) { normalizePhoneKey(primaryLine) }
+    val allContacts by phoneViewModel.allContacts.collectAsState()
+    val resolvedDeviceContactId =
+        remember(contact.deviceContactId, normKey, allContacts) {
+            if (contact.deviceContactId > 0L) {
+                contact.deviceContactId
+            } else if (normKey.isNotEmpty()) {
+                allContacts
+                    .firstOrNull { normalizePhoneKey(it.number) == normKey && it.deviceContactId > 0L }
+                    ?.deviceContactId
+                    ?: 0L
+            } else {
+                0L
+            }
+        }
+    val inSpamDb = normKey.isNotEmpty() && normKey in spamKeys
+    val isTrusted = normKey.isNotEmpty() && normKey in trustedKeys
+    val showSpamTools = normKey.isNotEmpty() && resolvedDeviceContactId == 0L
+    var historyEntities by remember(contact.id, normalizedKeysForHistory) { mutableStateOf<List<CallLogEntity>>(emptyList()) }
+    LaunchedEffect(normalizedKeysForHistory) {
+        phoneViewModel.callsMatchingNormalizedKeys(normalizedKeysForHistory).collect { historyEntities = it }
+    }
+    val history = remember(historyEntities) { historyEntities.map { it.toContactHistoryEntry() } }
+    var historyExpanded by remember(contact.id, normalizedKeysForHistory) { mutableStateOf(false) }
+    val historyVisibleCount = remember(history.size, historyExpanded) {
+        if (historyExpanded) minOf(10, history.size) else minOf(3, history.size)
+    }
+    val historyVisible = remember(history, historyVisibleCount) { history.take(historyVisibleCount) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -97,15 +149,63 @@ fun ContactDetailOverlay(
                             .weight(1f)
                             .verticalScroll(rememberScrollState()),
                 ) {
-                    ContactDetailHeader(contact = contact, numberLine = numberLine)
+                    ContactDetailHeader(
+                        contact = contact,
+                        phoneNumbers = displayNumbers,
+                        deviceContactIdForPhoto = resolvedDeviceContactId,
+                    )
                     QuickActionsRow(
-                        onCall = { onUserMessage(context.getString(R.string.toast_call_contact, contact.name)) },
-                        onMessage = { onUserMessage(context.getString(R.string.toast_sms_contact, contact.name)) },
+                        onCall = {
+                            if (!context.startDialer(primaryLine)) {
+                                onUserMessage(context.getString(R.string.toast_dial_failed))
+                            }
+                        },
+                        onMessage = {
+                            if (!context.startSmsCompose(primaryLine)) {
+                                onUserMessage(context.getString(R.string.snackbar_no_sms_app))
+                            }
+                        },
                         onNote = { onUserMessage(context.getString(R.string.toast_contact_note)) },
                         onSchedule = { onUserMessage(context.getString(R.string.toast_contact_schedule)) },
                     )
+                    if (showSpamTools) {
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (!isTrusted) {
+                                TextButton(
+                                    onClick = { phoneViewModel.markTrustedNumber(primaryLine) },
+                                ) {
+                                    Text(stringResource(R.string.call_menu_mark_trusted), color = PhoniqAccent)
+                                }
+                            } else {
+                                TextButton(
+                                    onClick = { phoneViewModel.clearTrustedNumber(primaryLine) },
+                                ) {
+                                    Text(stringResource(R.string.call_menu_clear_trusted), color = PhoniqAccent)
+                                }
+                            }
+                            if (!inSpamDb) {
+                                TextButton(
+                                    onClick = { phoneViewModel.markSpam(primaryLine) },
+                                ) {
+                                    Text(stringResource(R.string.call_menu_mark_spam), color = Color(0xFFFF5050))
+                                }
+                            } else {
+                                TextButton(
+                                    onClick = { phoneViewModel.unmarkSpam(primaryLine) },
+                                ) {
+                                    Text(stringResource(R.string.call_menu_unmark_spam), color = PhoniqAccent)
+                                }
+                            }
+                        }
+                    }
                     ContactPolicyCard(
-                        onClick = { onUserMessage(context.getString(R.string.toast_contact_policy)) },
+                        onClick = onOpenContactPolicies,
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 4.dp),
@@ -113,16 +213,47 @@ fun ContactDetailOverlay(
                         thickness = 1.dp,
                     )
                     MockupSectionLabel(text = stringResource(R.string.contact_history_section), topPadding = 8.dp)
-                    history.forEach { entry ->
-                        ContactHistoryRow(entry)
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 14.dp),
-                            color = PhoniqBorderSoft,
-                            thickness = 1.dp,
+                    if (history.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.contact_history_empty),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = PhoniqTextSecondaryMock,
                         )
+                    } else {
+                        historyVisible.forEach { entry ->
+                            ContactHistoryRow(entry)
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 14.dp),
+                                color = PhoniqBorderSoft,
+                                thickness = 1.dp,
+                            )
+                        }
+                        if (history.size > 3) {
+                            TextButton(
+                                onClick = { historyExpanded = !historyExpanded },
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                            ) {
+                                Text(
+                                    text =
+                                        if (historyExpanded) {
+                                            stringResource(R.string.contact_history_show_less)
+                                        } else {
+                                            stringResource(R.string.contact_history_view_more)
+                                        },
+                                    color = PhoniqAccent,
+                                )
+                            }
+                        }
                     }
                     Surface(
-                        onClick = { onUserMessage(context.getString(R.string.toast_contact_block)) },
+                        onClick = {
+                            if (context.openBlockedNumbersSettings()) {
+                                onUserMessage(context.getString(R.string.contact_block_open_system))
+                            } else {
+                                onUserMessage(context.getString(R.string.after_call_blocked_numbers_unavailable))
+                            }
+                        },
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -148,9 +279,10 @@ fun ContactDetailOverlay(
 @Composable
 private fun ContactDetailHeader(
     contact: ContactRow,
-    numberLine: String,
+    phoneNumbers: List<String>,
+    deviceContactIdForPhoto: Long,
 ) {
-    Column(
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -164,52 +296,84 @@ private fun ContactDetailHeader(
                     ),
                 )
                 .padding(horizontal = 16.dp, vertical = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         val g0 = Color(contact.avatarStartArgb.toInt())
         val g1 = Color(contact.avatarEndArgb.toInt())
+        val initial = contact.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
         Box(
             modifier =
                 Modifier
-                    .size(72.dp)
-                    .border(3.dp, PhoniqAccent.copy(alpha = 0.35f), CircleShape)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(g0, g1))),
+                    .size(88.dp)
+                    .border(3.dp, PhoniqAccent.copy(alpha = 0.35f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
+            if (deviceContactIdForPhoto > 0L) {
+                ContactPhotoAvatar(
+                    deviceContactId = deviceContactIdForPhoto,
+                    initials = initial,
+                    gradientStart = g0,
+                    gradientEnd = g1,
+                    size = 88.dp,
+                    fontSize = 28.sp,
+                )
+            } else {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(88.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(g0, g1))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AvatarInitialsText(
+                        text = initial,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                contact.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                color = Color.White,
-                fontSize = 26.sp,
+                contact.name,
+                color = PhoniqOnBackground,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
             )
-        }
-        Text(
-            contact.name,
-            color = PhoniqOnBackground,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 10.dp),
-        )
-        Text(
-            numberLine,
-            color = PhoniqTextSecondaryMock,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-        contact.riskNote?.let { note ->
-            Surface(
-                modifier = Modifier.padding(top = 6.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = PhoniqSecondary.copy(alpha = 0.12f),
-            ) {
+            if (phoneNumbers.size <= 1) {
                 Text(
-                    text = note,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = PhoniqSecondary,
+                    phoneNumbers.firstOrNull().orEmpty(),
+                    color = PhoniqTextSecondaryMock,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
+            } else {
+                Column(modifier = Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    phoneNumbers.forEach { line ->
+                        Text(
+                            line,
+                            color = PhoniqTextSecondaryMock,
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
+            }
+            contact.riskNote?.let { note ->
+                Surface(
+                    modifier = Modifier.padding(top = 6.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = PhoniqSecondary.copy(alpha = 0.12f),
+                ) {
+                    Text(
+                        text = note,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PhoniqSecondary,
+                    )
+                }
             }
         }
     }
@@ -266,7 +430,12 @@ private fun QuickAction(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(5.dp),
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier =
+            Modifier
+                .clickable(onClick = onClick)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = label
+                },
     ) {
         Box(
             modifier =
@@ -285,13 +454,18 @@ private fun QuickAction(
 @Composable
 private fun ContactPolicyCard(onClick: () -> Unit) {
     val brush = Brush.linearGradient(colors = listOf(Color(0xFF8E44AD), Color(0xFF5B2C6F)))
+    val titleText = stringResource(R.string.contact_policy_title)
+    val subText = stringResource(R.string.contact_policy_sub)
     Surface(
         onClick = onClick,
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 0.dp)
-                .padding(bottom = 8.dp),
+                .padding(bottom = 8.dp)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "$titleText. $subText"
+                },
         shape = RoundedCornerShape(16.dp),
         color = PhoniqSurface,
         border = BorderStroke(1.dp, PhoniqBorder),
@@ -340,7 +514,10 @@ private fun ContactHistoryRow(entry: ContactHistoryEntry) {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "${entry.directionMeta}, ${entry.timeMeta}"
+                },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(

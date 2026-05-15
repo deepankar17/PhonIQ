@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import com.phoniq.app.R
 import com.phoniq.app.ui.shell.ShellMenuAction
 import com.phoniq.app.ui.theme.PhoniqBorder
-import com.phoniq.app.ui.theme.PhoniqSurface
 import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
 
 private data class MoneyToolChip(
@@ -52,7 +51,7 @@ fun MoneyToolsStrip(onTool: (ShellMenuAction) -> Unit) {
                 onClick = { onTool(chip.action) },
                 modifier = Modifier.widthIn(min = 118.dp, max = 150.dp),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = PhoniqSurface),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 border = BorderStroke(1.dp, PhoniqBorder),
             ) {
