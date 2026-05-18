@@ -20,9 +20,10 @@
     <string name="menu_phone_after_call">After-call sheet</string>
     <string name="menu_phone_recording">Call recording</string>
     <string name="menu_messages_bill_hygiene">Bill hygiene</string>
-    <string name="menu_messages_otp_center">OTP center</string>
+    <string name="menu_messages_reminders">Reminders</string>
     <string name="menu_messages_mark_read">Mark all read</string>
     <string name="menu_messages_inbox_cleaner">Inbox cleaner</string>
+    <string name="menu_messages_otp_center">OTP center</string>
     <string name="menu_money_bill_due">Bill due</string>
     <string name="menu_money_recurring">Recurring</string>
     <string name="menu_money_salary">Salary (FY)</string>
@@ -63,7 +64,8 @@
     <string name="merge_open_people">Open Contacts app</string>
     <string name="merge_hint">Long-press linked contacts in People to merge, or edit and remove duplicate numbers.</string>
 
-    <string name="money_intel_section">Money IQ (from SMS)</string>
+    <string name="money_passbook_section">Passbook</string>
+    <string name="money_intel_section">Insights</string>
     <string name="money_intel_recurring">Recurring patterns</string>
     <string name="money_intel_recurring_body">%1$d merchants with repeating debits (heuristic)</string>
     <string name="money_intel_salary">Salary credits</string>
@@ -160,6 +162,7 @@
     <string name="cd_fab_add_contact">Add contact</string>
     <string name="cd_fab_add_favorite">Add favorite</string>
     <string name="cd_favorites_remove_star">Remove from favorites</string>
+    <string name="favorites_remove_action">Remove from favorites</string>
 
     <string name="toast_keypad_placeholder">Keypad — default dialer flow comes next.</string>
     <string name="toast_add_favorite_placeholder">Add favorite — picks a contact next.</string>
@@ -174,11 +177,41 @@
     <string name="contact_qa_message">Message</string>
     <string name="contact_qa_note">Add note</string>
     <string name="contact_qa_schedule">Schedule</string>
+    <string name="contact_qa_whatsapp">WhatsApp</string>
+    <string name="contact_qa_edit">Edit</string>
+    <string name="contact_qa_block">Block</string>
+    <string name="contact_last_call_subtitle">Last call · %1$s</string>
+    <string name="contact_meta_whatsapp_in_log">WhatsApp in recent calls</string>
+    <string name="contact_cd_sms_compose">Compose SMS</string>
+    <string name="contact_phone_list_empty">No phone numbers saved.</string>
+    <string name="toast_contact_edit_failed">Couldn\'t open contact editor.</string>
+    <string name="contact_editor_title_new">New contact</string>
+    <string name="contact_editor_title_edit">Edit contact</string>
+    <string name="contact_editor_save">Save</string>
+    <string name="contact_editor_cancel">Cancel</string>
+    <string name="contact_editor_name">Name</string>
+    <string name="contact_editor_add_phone">Add phone number</string>
+    <string name="contact_editor_remove_phone">Remove number</string>
+    <string name="contact_editor_label_mobile">Mobile</string>
+    <string name="contact_editor_label_home">Home</string>
+    <string name="contact_editor_label_work">Work</string>
+    <string name="contact_editor_label_main">Main</string>
+    <string name="contact_editor_label_other">Other</string>
+    <string name="contact_editor_label_whatsapp">Whatsapp</string>
+    <string name="contact_editor_label_custom">Custom\u2026</string>
+    <string name="contact_editor_label_change">Change label</string>
+    <string name="contact_editor_custom_dialog_title">Custom label</string>
+    <string name="contact_editor_custom_dialog_hint">Label</string>
+    <string name="contact_editor_save_failed">Couldn\'t save contact. Check Contacts permission.</string>
+    <string name="contact_editor_save_ok_new">Contact saved.</string>
+    <string name="contact_editor_save_ok_update">Contact updated.</string>
+    <string name="contact_editor_validation_name_or_number">Add a name or at least one phone number.</string>
     <string name="contact_policy_title">Per-contact call policies</string>
     <string name="contact_policy_sub">Ring, default SIM, ringtone · wire</string>
     <string name="contact_history_section">Call history</string>
     <string name="contact_history_empty">No calls logged for this number in PhonIQ yet. Sync call log or place a call.</string>
     <string name="contact_history_view_more">View more</string>
+    <string name="contact_history_view_all">View all</string>
     <string name="contact_history_show_less">Show less</string>
     <string name="contact_block_cta">Block this number</string>
     <string name="toast_contact_note">Note saved (prototype).</string>
@@ -217,6 +250,12 @@
     <string name="incoming_sms_reply">Reply with message</string>
     <string name="incoming_decline">Decline</string>
     <string name="incoming_answer">Answer</string>
+    <string name="incoming_slide_to_answer">slide to answer</string>
+    <string name="incoming_voicemail_short">Voicemail</string>
+    <string name="incall_video">Video</string>
+    <string name="incall_more">More</string>
+    <string name="toast_video_calls_not_supported">Video calls are not available from PhonIQ yet.</string>
+    <string name="toast_voicemail_hint">Use your carrier’s voicemail from the dialer or phone app.</string>
     <string name="after_call_send_sms">Send SMS</string>
     <string name="after_call_save_contact">Save contact</string>
     <string name="after_call_favourite">Favourite</string>
@@ -244,11 +283,51 @@
 
     <string name="thread_menu_compose_sms">Compose SMS</string>
     <string name="thread_menu_copy_address">Copy address</string>
+    <string name="thread_menu_block_sender">Block sender</string>
+    <string name="reminders_title">Reminders</string>
+    <string name="reminders_empty">No reminders yet. Tap + for a manual task or import from bill messages.</string>
+    <string name="reminders_add_cd">Add reminder</string>
+    <string name="reminders_add_title">New reminder</string>
+    <string name="reminders_add_label">Title</string>
+    <string name="reminders_add_confirm">Save</string>
+    <string name="reminders_add_cancel">Cancel</string>
+    <string name="reminders_policy_remind_before">When importing bill SMS, remind me:</string>
+    <string name="reminders_remind_before_days">%1$d days before due</string>
+    <string name="reminders_section_overdue">Overdue</string>
+    <string name="reminders_section_upcoming">Upcoming</string>
+    <string name="reminders_section_done">Done</string>
+    <string name="reminders_done_label">Done</string>
+    <string name="reminders_overdue_by_days">%1$d days overdue</string>
+    <string name="reminders_due_in_days_short">in %1$d days</string>
+    <string name="reminders_add_due_label">Due</string>
+    <string name="reminders_due_today">Today</string>
+    <string name="reminders_due_tomorrow">Tomorrow</string>
+    <string name="reminders_due_in_days">In %1$d days</string>
+    <string name="reminders_import_cd">Import from bill messages</string>
+    <string name="reminders_import_added">Imported %1$d bill reminder(s)</string>
+    <string name="reminders_import_none">No new bill reminders (need due date in Bill threads)</string>
+    <string name="reminders_snooze_1d">Snooze 1 day</string>
+    <string name="reminders_snooze_3d">Snooze 3 days</string>
+    <string name="reminders_open_thread">Open message thread</string>
+    <string name="reminders_copy_upi">Copy UPI ID</string>
+    <string name="reminders_open_upi_pay">Pay with UPI</string>
+    <string name="reminders_row_menu_cd">Reminder actions</string>
+    <string name="reminders_upi_copied">UPI ID copied</string>
+    <string name="reminders_upi_pay_launched">Opening payment app…</string>
+    <string name="reminders_upi_pay_failed">No app could handle UPI pay</string>
+    <string name="block_sender_ok_local">Sender blocked in PhonIQ. Their thread is hidden from your inbox.</string>
+    <string name="block_sender_ok_system">Sender blocked on this device (system list) and in PhonIQ.</string>
+    <string name="block_sender_ok_local_try_settings">Blocked in PhonIQ. Open system Blocked numbers if you also want calls/SMS blocked platform-wide.</string>
+    <string name="block_sender_err_empty">No address to block.</string>
     <string name="thread_menu_address_copied">Address copied</string>
     <string name="thread_emoji_pick_title">Send a reaction</string>
     <string name="thread_attach_chooser_title">Send with…</string>
     <string name="thread_attach_open_failed">Couldn\'t open an app to send the attachment.</string>
+    <string name="sms_link_preview_title">Link preview (peek)</string>
+    <string name="sms_link_open_browser">Open in browser</string>
+    <string name="sms_link_open_failed">Couldn\'t open this link</string>
     <string name="full_screen_dialpad_title">Dial</string>
+    <string name="full_screen_dialpad_subtitle">Contacts &amp; recent</string>
     <string name="msg_filter_all">All</string>
     <string name="msg_filter_selected_suffix">selected</string>
     <string name="msg_filter_unread">Unread</string>
@@ -307,13 +386,15 @@
 
     <string name="contact_policy_sheet_title">Call policies (preview)</string>
     <string name="contact_policy_ring_mode">Ring for this contact</string>
-    <string name="contact_policy_ring_mode_sub">Off routes to silent (UI mock)</string>
+    <string name="contact_policy_ring_mode_sub">When off, incoming PhonIQ call notification is silent (system may still ring — OEM dependent)</string>
     <string name="contact_policy_default_sim">Default SIM for calls</string>
     <string name="contact_policy_sim1">SIM 1</string>
     <string name="contact_policy_sim2">SIM 2</string>
     <string name="contact_policy_custom_ringtone">Custom ringtone</string>
-    <string name="contact_policy_custom_ringtone_sub">Picker ships later</string>
-    <string name="contact_policy_mock_note">Not saved — prototype controls only.</string>
+    <string name="contact_policy_custom_ringtone_sub">Opens system ringtone picker when enabled</string>
+    <string name="contact_policy_choose_ringtone">Choose ringtone</string>
+    <string name="contact_policy_mock_note">Saved on device. Preferred SIM applies to calls placed from PhonIQ. Ring and custom tone apply to PhonIQ incoming call notifications where the OS allows.</string>
+    <string name="toast_sim_routing_fallback">Couldn\'t use preferred SIM — placing call with default line</string>
 
     <string name="action_done">Done</string>
 
@@ -397,6 +478,12 @@
     <string name="otp_bubble_default_intro">Verification message</string>
     <string name="otp_bubble_footer_approx">Approx. validity: about %1$d min (countdown below).</string>
     <string name="thread_view_in_money">View in Money</string>
+    <string name="thread_view_sms_text">View SMS text</string>
+    <string name="thread_txn_back_to_card">Back to summary</string>
+    <string name="thread_txn_account">Account %1$s</string>
+    <string name="thread_txn_avl_balance">Available balance %1$s</string>
+    <string name="thread_txn_credited">Credited</string>
+    <string name="thread_txn_debited">Debited</string>
     <string name="toast_view_in_money">Opening Money tab…</string>
     <string name="toast_whatsapp_open_failed">Couldn\'t open WhatsApp. Install it or place a PSTN call from the keypad.</string>
     <string name="snackbar_no_sms_app">No SMS app found to compose a message.</string>
@@ -407,6 +494,10 @@
     <string name="thread_cd_emoji">Emoji</string>
     <string name="thread_cd_attach">Attach</string>
     <string name="thread_cd_send">Send</string>
+    <string name="thread_send_failed">Couldn\'t send SMS: %1$s</string>
+    <string name="thread_send_no_destination">No phone number available for this thread.</string>
+    <string name="thread_send_no_permission">SMS permission not granted. Allow SEND_SMS to send messages.</string>
+    <string name="thread_send_not_default_hint">Sent — set PhonIQ as default SMS app to see it instantly.</string>
 
     <string name="wire_phone_who_title">Who is this?</string>
     <string name="wire_phone_who_body">Fuse last PSTN/WA call, last SMS from the same sender, and your local notes — read-only until contacts + SMS are linked in Room.</string>
@@ -459,6 +550,12 @@
     <string name="perso_theme_section">App Theme</string>
     <string name="perso_accent_section">Accent Color</string>
     <string name="perso_dialpad_section">Dialpad Style</string>
+    <string name="perso_answer_style_section">Answer button style</string>
+    <string name="perso_contact_avatar_section">Contact photo shape</string>
+    <string name="perso_contact_avatar_sub">Applies to contact photos and initials across Phone, calls, and Messages.</string>
+    <string name="perso_contact_avatar_preview_empty">No contacts with photos on this device — shape still applies everywhere else.</string>
+    <string name="perso_call_style_locked_sub">Bundled with the current app theme.</string>
+    <string name="preview_slide_to_answer_short">Slide to answer</string>
     <string name="perso_font_family_section">Font Family</string>
     <string name="perso_font_size_section">Font Size</string>
     <string name="perso_display_section">Display</string>
@@ -502,6 +599,8 @@
 
     <!-- Contacts panel -->
     <string name="contacts_search_placeholder">Search contacts</string>
+    <string name="contacts_privacy_banner">Your contacts stay on this device. PhonIQ lists and searches them offline—nothing is uploaded.</string>
+    <string name="cd_contacts_privacy_banner">On-device contacts privacy note</string>
     <string name="contacts_all_label">All Contacts</string>
     <string name="contacts_blocked_label">Blocked numbers</string>
     <string name="contacts_blocked_sub">Opens your device blocked list · PhonIQ enforces rejection only via the OS.</string>
@@ -511,6 +610,7 @@
     <string name="favorites_empty">No starred contacts on this device yet. Star contacts in your People app to see them here.</string>
 
     <string name="msg_filter_archived">Archived</string>
+    <string name="msg_filter_offers">Offers</string>
     <string name="thread_pin">Pin thread</string>
     <string name="thread_unpin">Unpin thread</string>
     <string name="thread_archive">Archive</string>
@@ -521,6 +621,28 @@
     <string name="call_menu_clear_trusted">Remove trust</string>
     <string name="call_menu_mark_spam">Mark spam</string>
     <string name="call_menu_unmark_spam">Remove spam mark</string>
+    <string name="call_menu_call_back">Call</string>
+    <string name="call_menu_send_sms">Send message</string>
+    <string name="call_menu_view_contact">View contact</string>
+    <string name="call_menu_delete_history">Delete from history</string>
+    <string name="call_menu_delete_history_done">Removed from call history</string>
+    <string name="recent_section_today">Today</string>
+    <string name="recent_section_yesterday">Yesterday</string>
+    <string name="recent_section_this_week">Earlier this week</string>
+    <string name="recent_section_older">Older</string>
+    <string name="messages_search_placeholder">Search messages</string>
+    <string name="messages_search_clear">Clear search</string>
+    <string name="contact_star_cd">Add to favorites</string>
+    <string name="contact_unstar_cd">Remove from favorites</string>
+    <string name="contact_star_failed">Couldn\'t update favorite</string>
+    <string name="contact_share_cd">Share contact</string>
+    <string name="contact_share_chooser">Share contact via</string>
+    <string name="contact_share_failed">No app available to share this contact</string>
+    <string name="notif_sms_reply_action">Reply</string>
+    <string name="notif_sms_reply_hint">Type your reply</string>
+    <string name="notif_self_label">Me</string>
+    <string name="incoming_reply_custom">Write custom…</string>
+    <string name="incoming_template_sent">Decline + reply sent</string>
 
     <string name="money_upcoming_reminders_title">Upcoming (heuristic)</string>
     <string name="money_salary_fy_title">Salary (Indian FY)</string>
@@ -528,7 +650,7 @@
     <string name="money_upcoming_bills_title">Bill reminders (from SMS)</string>
 
     <string name="settings_section_mms">MMS</string>
-    <string name="settings_mms_scope_body">Full MMS compose/receive is not implemented in this release. The app registers for WAP PUSH when you are the default SMS app, but MMS threads may remain incomplete. Use your system Messages app for picture messages until a MmsProvider-backed path ships.</string>
+    <string name="settings_mms_scope_body">MMS picture decode and rich compose are still limited. When you are the default SMS app, PhonIQ indexes **MMS inbox** rows from the Telephony provider into your local thread list as “[MMS]” placeholders (subject only where available). Picture attachments and full MMS sending are not implemented yet—use the system Messages app for heavy MMS if needed.</string>
     <string name="settings_about_offline_note">Core IQ is offline-first. INTERNET may exist for optional manual features only. No background analytics. Data stays on your device unless you export it.</string>
 
     <string name="dialog_widgets_title">Widgets &amp; shortcuts</string>
@@ -538,4 +660,82 @@
     <string name="shortcut_phone_long">Open PhonIQ Phone</string>
     <string name="shortcut_messages_short">Messages</string>
     <string name="shortcut_messages_long">Open PhonIQ Messages</string>
+
+    <string name="notif_channel_sms_otp">OTP alerts</string>
+    <string name="notif_channel_sms_txn">Transaction alerts</string>
+    <string name="notif_sms_otp_title">OTP from %1$s</string>
+    <string name="notif_sms_txn_title">Transaction from %1$s</string>
+    <string name="notif_txn_spent">Spent</string>
+    <string name="notif_txn_received">Received</string>
+    <string name="notif_txn_at">at</string>
+    <string name="notif_txn_card_suffix">···%1$s</string>
+    <string name="notif_txn_avl_fmt">Available limit %1$s</string>
+    <string name="notif_txn_cat_food">Food</string>
+    <string name="notif_txn_cat_shopping">Shopping</string>
+    <string name="notif_txn_cat_transport">Travel</string>
+    <string name="notif_txn_cat_bills">Bills</string>
+    <string name="notif_txn_cat_emi">EMI</string>
+    <string name="notif_txn_cat_salary">Salary</string>
+    <string name="notif_txn_cat_investment">Invest</string>
+    <string name="notif_txn_cat_health">Health</string>
+    <string name="notif_txn_cat_entertainment">Fun</string>
+    <string name="notif_txn_cat_atm">ATM</string>
+    <string name="notif_txn_action_money">Money</string>
+    <string name="notif_txn_action_stats">Stats</string>
+    <string name="notif_txn_action_split">Split</string>
+    <string name="notif_txn_month_spend_fmt">Total %1$s spent in %2$s</string>
+    <string name="notif_txn_safe_per_day_fmt">Safe to spend ~%1$s / day (budgets)</string>
+    <string name="notif_txn_cat_cd">Category</string>
+    <string name="money_notif_stats_message">Month summary and categories are below — scroll for budgets and charts.</string>
+    <string name="money_notif_split_generic">Open Money to track shared expenses.</string>
+    <string name="money_split_dialog_title">Split this expense?</string>
+    <string name="money_split_dialog_body">You spent %1$s at %2$s. Use Money below to set budgets; split with friends in your chat app if needed.</string>
+    <string name="notif_call_answer">Answer</string>
+    <string name="notif_call_decline">Decline</string>
+    <string name="snackbar_enable_full_screen_calls">Allow full-screen incoming calls for PhonIQ in system settings (Notifications → PhonIQ) so calls appear over other apps.</string>
+
+    <string name="bulk_selected_count">%1$d selected</string>
+    <string name="bulk_exit_selection">Exit selection</string>
+    <string name="bulk_delete">Delete</string>
+    <string name="bulk_mark_spam">Spam</string>
+    <string name="bulk_block">Block</string>
+    <string name="bulk_share">Share</string>
+    <string name="bulk_star">Star</string>
+    <string name="call_menu_select_for_bulk">Select</string>
+    <string name="contact_menu_select_for_bulk">Select</string>
+    <string name="bulk_contacts_starred">Starred %1$d contacts</string>
+    <string name="bulk_select_all_visible">Select all visible</string>
+    <string name="bulk_mark_trusted">Mark trusted</string>
+    <string name="bulk_trusted_marked">Marked as trusted</string>
+    <string name="bulk_merge">Merge duplicates</string>
+    <string name="bulk_merge_none">No duplicate merge groups include this selection</string>
+    <string name="bulk_delete_contacts">Delete contacts</string>
+    <string name="bulk_delete_contacts_confirm_title">Delete contacts?</string>
+    <string name="bulk_delete_contacts_confirm_body">This removes %1$d contacts from your device. This cannot be undone.</string>
+    <string name="bulk_delete_contacts_done">Deleted %1$d contacts</string>
+    <string name="bulk_delete_contacts_none_device">Nothing to delete — selected rows are not linked to device contacts</string>
+
+    <!-- Short labels under icons on Phone bulk bars -->
+    <string name="bulk_label_close">Close</string>
+    <string name="bulk_label_all_visible">All visible</string>
+    <string name="bulk_label_trusted">Trusted</string>
+    <string name="bulk_label_delete">Clear log</string>
+    <string name="bulk_label_delete_contact">Delete contact</string>
+    <string name="bulk_label_spam">Spam</string>
+    <string name="bulk_label_block">Block</string>
+    <string name="bulk_label_share">Share</string>
+    <string name="bulk_label_star">Star</string>
+    <string name="bulk_label_merge">Merge</string>
+
+    <string name="money_invest_sms_section">Investment SMS (parsed)</string>
+    <string name="messages_bulk_mark_read">Mark read</string>
+    <string name="messages_bulk_archive">Archive</string>
+    <string name="messages_bulk_pin">Pin</string>
+    <string name="messages_bulk_unpin">Unpin</string>
+    <string name="messages_bulk_delete">Delete</string>
+    <string name="messages_threads_deleted">Conversation deleted</string>
+    <string name="messages_selection_mode">Select conversations</string>
+
+    <string name="widget_phoniq_label">PhonIQ</string>
+    <string name="widget_phoniq_description">Open PhonIQ (Phone tab)</string>
 </resources>

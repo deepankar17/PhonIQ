@@ -40,6 +40,8 @@ data class RecentCall(
     /** Avatar gradient (mockup `call-avatar` inline gradients). */
     val avatarStartArgb: Long = 0xFF607D8BL,
     val avatarEndArgb: Long = 0xFF455A64L,
+    /** Wall-clock timestamp of the call (CallLog.Calls.DATE). Used for Today / Yesterday grouping. */
+    val timestampMs: Long = 0L,
 )
 
 enum class RecentCallFilter {
@@ -73,12 +75,21 @@ fun RecentCall.toContactProfileRow(): ContactRow {
         name = contactName,
         subtitle = numberOrLabel,
         detailNumber = numberOrLabel,
+        allPhoneNumbers = listOf(numberOrLabel),
+        phoneEntries = listOf(ContactPhoneEntry(number = numberOrLabel, label = null)),
         riskNote = risk,
         avatarStartArgb = avatarStartArgb,
         avatarEndArgb = avatarEndArgb,
         deviceContactId = deviceContactId,
     )
 }
+
+/** One phone row on a device contact: raw [number] plus a human label (e.g. "Mobile", "Whatsapp"). */
+data class ContactPhoneEntry(
+    val number: String,
+    /** Resolved phone-type label from `Phone.getTypeLabel` (Mobile, Home, Work, custom …) or null. */
+    val label: String? = null,
+)
 
 data class ContactRow(
     val id: String,
@@ -89,6 +100,11 @@ data class ContactRow(
     val detailNumber: String? = null,
     /** All raw numbers when grouped from device contacts; primary row actions use first entry. */
     val allPhoneNumbers: List<String> = emptyList(),
+    /**
+     * Full per-row phone entries (number + label) for multi-number contact UIs.
+     * Order matches [allPhoneNumbers] when both are populated.
+     */
+    val phoneEntries: List<ContactPhoneEntry> = emptyList(),
     val avatarStartArgb: Long = 0xFF8C5FE8L,
     val avatarEndArgb: Long = 0xFF6C63FFL,
     val deviceContactId: Long = 0L,

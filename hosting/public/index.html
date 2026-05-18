@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PhonIQ — Know every call. Track every rupee.</title>
+  <meta name="description" content="PhonIQ is a privacy‑minded Android phone, SMS, and money‑from‑SMS experience. Offline‑first core IQ." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <style>
+    :root {
+      --blue: #0d47a1;
+      --cyan: #00e5ff;
+      --bg: #0a0a0f;
+      --card: #14141f;
+      --text: #f0f0f5;
+      --muted: #8a8a9a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .gradient {
+      background: linear-gradient(135deg, var(--blue) 0%, var(--cyan) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    header {
+      padding: 2.5rem 1.5rem 1rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    header h1 {
+      margin: 0;
+      font-size: clamp(1.75rem, 5vw, 2.25rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    header .tagline {
+      margin: 0.5rem 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    main {
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .card h2 {
+      margin: 0 0 0.5rem;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--cyan);
+    }
+    .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+    a {
+      color: var(--cyan);
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+    ul { margin: 0.5rem 0 0; padding-left: 1.2rem; color: var(--muted); }
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span class="gradient">Phon</span><span style="color:var(--cyan);">IQ</span></h1>
+    <p class="tagline">Intelligence. Communication. Finance.</p>
+  </header>
+  <main>
+    <div class="card">
+      <h2>About</h2>
+      <p>
+        <strong style="color:var(--text);">PhonIQ</strong> is an Android app for phone, messages, and money insights from SMS — built with an
+        offline‑first mindset. This page is the public info site for the project.
+      </p>
+    </div>
+    <div class="card">
+      <h2>Links</h2>
+      <ul>
+        <li><a href="https://github.com/deepankar17/PhonIQ" rel="noopener noreferrer">Source &amp; docs on GitHub</a></li>
+        <li><a href="/privacy.html">Privacy policy</a> (summary; <a href="https://github.com/deepankar17/PhonIQ/blob/main/docs/PRIVACY_POLICY.md" rel="noopener noreferrer">full Markdown</a> in repo)</li>
+        <li>Google Play listing — <em>coming when published</em></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Contact</h2>
+      <p>Product and support contacts will appear here with your public email or form once you publish them.</p>
+    </div>
+  </main>
+  <footer>
+    © PhonIQ · <span id="y"></span>
+  </footer>
+  <script>document.getElementById("y").textContent = new Date().getFullYear();</script>
+</body>
+</html>

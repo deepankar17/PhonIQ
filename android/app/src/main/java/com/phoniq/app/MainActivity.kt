@@ -1,7 +1,6 @@
 package com.phoniq.app
 
 import android.app.role.RoleManager
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -13,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -46,8 +46,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,23 +75,33 @@ import com.phoniq.app.ui.messages.MessagesViewModel
 import com.phoniq.app.ui.money.MoneyExportBottomSheet
 import com.phoniq.app.ui.money.MoneyScreen
 import com.phoniq.app.ui.money.MoneyViewModel
+import com.phoniq.app.ui.reminders.RemindersOverlay
+import com.phoniq.app.ui.reminders.RemindersViewModel
 import com.phoniq.app.ui.permission.CORE_PERMISSIONS
 import com.phoniq.app.ui.permission.OPTIONAL_PERMISSIONS
 import com.phoniq.app.ui.permission.PermissionBanner
 import com.phoniq.app.ui.permission.PermissionScreen
 import com.phoniq.app.ui.permission.allCorePermissionsGranted
 import com.phoniq.app.ui.phone.AfterCallSheet
+import com.phoniq.app.ui.phone.EditContactOverlay
 import com.phoniq.app.ui.phone.FullScreenDialpadOverlay
 import com.phoniq.app.ui.phone.InCallScreen
 import com.phoniq.app.ui.phone.InCallUiPhase
 import com.phoniq.app.ui.phone.IncomingCallScreen
 import com.phoniq.app.ui.phone.PhoneScreen
 import com.phoniq.app.ui.phone.PhoneViewModel
+import com.phoniq.app.data.model.ContactPhoneEntry
+import com.phoniq.app.util.PersonalizationStore
+import com.phoniq.app.notification.NotificationPermissionHelper
+import com.phoniq.app.notification.SmsIncomingNotifier
+import com.phoniq.app.telecom.CallOverlayActivity
 import com.phoniq.app.telecom.CallState
 import com.phoniq.app.telecom.CallRecordingPreferences
 import com.phoniq.app.telecom.CallStateRepository
+import com.phoniq.app.telecom.IncomingCallNotification
 import com.phoniq.app.ui.settings.SettingsFullScreenOverlay
 import com.phoniq.app.data.model.MessageThreadCategory
+import com.phoniq.app.data.model.DuplicateContactGroup
 import com.phoniq.app.data.model.buildDuplicateContactGroups
 import com.phoniq.app.ui.shell.CallRecordingLibraryOverlay
 import com.phoniq.app.ui.shell.CommunicationInsightsOverlay
@@ -102,15 +114,21 @@ import com.phoniq.app.ui.shell.mainTabFromRoute
 import com.phoniq.app.ui.theme.PhonIQTheme
 import com.phoniq.app.ui.theme.PhoniqAccent
 import com.phoniq.app.util.LocalDatabaseExport
-import com.phoniq.app.util.buildInsertContactIntent
 import com.phoniq.app.util.contactIdFromPickUri
 import com.phoniq.app.util.findMessageThreadIdForNumber
 import com.phoniq.app.util.openBlockedNumbersSettings
 import com.phoniq.app.util.sanitizeForTelDial
-import com.phoniq.app.util.startDialer
+import com.phoniq.app.util.placeOrDial
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** Snapshot used to seed the in-app contact editor (add when `deviceContactId == 0L`, else edit). */
+private data class EditingContactInit(
+    val deviceContactId: Long,
+    val name: String,
+    val phones: List<ContactPhoneEntry>,
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -118,9 +136,89 @@ class MainActivity : ComponentActivity() {
         consumeLaunchIntent(intent)
         enableEdgeToEdge()
         setContent {
-            var useDarkTheme by rememberSaveable { mutableStateOf(true) }
-            PhonIQTheme(darkTheme = useDarkTheme) {
-                PhonIQRoot(onDarkThemePreference = { useDarkTheme = it })
+            val act = this@MainActivity
+            val init = remember { PersonalizationStore.load(act) }
+            var accentArgb by rememberSaveable { mutableStateOf(init.accentArgb) }
+            var amoledBlack by rememberSaveable { mutableStateOf(init.amoledBlack) }
+            var materialYou by rememberSaveable { mutableStateOf(init.materialYou) }
+            var denseThreads by rememberSaveable { mutableStateOf(init.denseThreads) }
+            var dialpadStyle by rememberSaveable { mutableStateOf(init.dialpadStyle) }
+            var answerCallStyle by rememberSaveable { mutableStateOf(init.answerCallStyle) }
+            var themePreset by rememberSaveable { mutableStateOf(init.themePreset) }
+            var followSystemTheme by rememberSaveable { mutableStateOf(init.followSystemTheme) }
+            var useDarkTheme by rememberSaveable { mutableStateOf(init.darkTheme) }
+            var fontFamilyName by rememberSaveable { mutableStateOf(init.fontFamily) }
+            var fontSizeTier by rememberSaveable { mutableStateOf(init.fontSizeTier) }
+            var hapticsEnabled by rememberSaveable { mutableStateOf(init.hapticsEnabled) }
+            var showInCallTimer by rememberSaveable { mutableStateOf(init.showInCallTimer) }
+            var verifiedCallerBadge by rememberSaveable { mutableStateOf(init.verifiedCallerBadge) }
+            var otpAutoCopy by rememberSaveable { mutableStateOf(init.otpAutoCopy) }
+            var rcsUiEnabled by rememberSaveable { mutableStateOf(init.rcsUiEnabled) }
+            var overBudgetAlerts by rememberSaveable { mutableStateOf(init.overBudgetAlerts) }
+            var blurMoneyAmounts by rememberSaveable { mutableStateOf(init.blurMoneyAmounts) }
+            var appLockEnabled by rememberSaveable { mutableStateOf(init.appLockEnabled) }
+            var stealthMode by rememberSaveable { mutableStateOf(init.stealthMode) }
+            var contactAvatarStyle by rememberSaveable { mutableStateOf(init.contactAvatarStyle) }
+
+            val systemDark = isSystemInDarkTheme()
+            val effectiveDark = if (followSystemTheme) systemDark else useDarkTheme
+            val effectiveAmoled = !followSystemTheme && amoledBlack
+
+            PhonIQTheme(
+                darkTheme = effectiveDark,
+                themePreset = themePreset,
+                accentArgb = accentArgb,
+                useAmoledBlack = effectiveAmoled,
+                denseThreads = denseThreads,
+                materialYou = materialYou,
+                fontFamilyName = fontFamilyName,
+                fontSizeTier = fontSizeTier,
+                hapticsEnabled = hapticsEnabled,
+                showInCallTimer = showInCallTimer,
+                rcsBadgesEnabled = rcsUiEnabled,
+                blurMoneyAmounts = blurMoneyAmounts,
+                contactAvatarStyle = contactAvatarStyle,
+            ) {
+                PhonIQRoot(
+                    onDarkThemePreference = {
+                        useDarkTheme = it
+                        PersonalizationStore.update(act) { s -> s.copy(darkTheme = it) }
+                    },
+                    onAccentArgbChanged = {
+                        accentArgb = it
+                        PersonalizationStore.update(act) { s -> s.copy(accentArgb = it) }
+                    },
+                    onAmoledBlackChanged = {
+                        amoledBlack = it
+                        PersonalizationStore.update(act) { s -> s.copy(amoledBlack = it) }
+                    },
+                    onMaterialYouChanged = { materialYou = it },
+                    onDenseThreadsChanged = {
+                        denseThreads = it
+                        PersonalizationStore.update(act) { s -> s.copy(denseThreads = it) }
+                    },
+                    onDialpadStyleChanged = { dialpadStyle = it },
+                    onAnswerCallStyleChanged = { answerCallStyle = it },
+                    onFollowSystemThemeChanged = { followSystemTheme = it },
+                    onThemePresetChanged = { themePreset = it },
+                    onFontFamilyChanged = { fontFamilyName = it },
+                    onFontSizeTierChanged = { fontSizeTier = it },
+                    onHapticsChanged = { hapticsEnabled = it },
+                    onShowInCallTimerChanged = { showInCallTimer = it },
+                    onVerifiedCallerBadgeChanged = { verifiedCallerBadge = it },
+                    onOtpAutoCopyChanged = { otpAutoCopy = it },
+                    onRcsUiChanged = { rcsUiEnabled = it },
+                    onOverBudgetAlertsChanged = { overBudgetAlerts = it },
+                    onBlurMoneyAmountsChanged = { blurMoneyAmounts = it },
+                    onAppLockChanged = { appLockEnabled = it },
+                    onStealthModeChanged = { stealthMode = it },
+                    onContactAvatarStyleChanged = {
+                        contactAvatarStyle = it
+                        PersonalizationStore.update(act) { s -> s.copy(contactAvatarStyle = it) }
+                    },
+                    dialpadStyle = dialpadStyle,
+                    answerCallStyle = answerCallStyle,
+                )
             }
         }
     }
@@ -133,6 +231,39 @@ class MainActivity : ComponentActivity() {
 
     private fun consumeLaunchIntent(i: Intent?) {
         if (i == null) return
+
+        if (i.getBooleanExtra(SmsIncomingNotifier.EXTRA_OPEN_MONEY_TAB, false)) {
+            val modeStr = i.getStringExtra(SmsIncomingNotifier.EXTRA_MONEY_NOTIF_MODE).orEmpty()
+            val mode =
+                when (modeStr) {
+                    "stats" -> MoneyNotifMode.STATS
+                    "split" -> MoneyNotifMode.SPLIT
+                    else -> MoneyNotifMode.DEFAULT
+                }
+            val splitAmt =
+                if (i.hasExtra(SmsIncomingNotifier.EXTRA_TXN_SPLIT_AMOUNT)) {
+                    i.getDoubleExtra(SmsIncomingNotifier.EXTRA_TXN_SPLIT_AMOUNT, 0.0).takeIf { it > 0 }
+                } else {
+                    null
+                }
+            val merch = i.getStringExtra(SmsIncomingNotifier.EXTRA_TXN_SPLIT_MERCHANT)
+            PhonIQLaunchRouter.offerMoneyFromTxnNotification(
+                MoneyNotifExtras(mode = mode, splitAmount = splitAmt, splitMerchant = merch),
+            )
+            return
+        }
+
+        i.getStringExtra(SmsIncomingNotifier.EXTRA_OPEN_THREAD_ID)?.trim()?.takeIf { it.isNotEmpty() }?.let { raw ->
+            val tid = if (raw.startsWith("sms_")) raw else "sms_$raw"
+            PhonIQLaunchRouter.offerOpenMessageThread(tid)
+            return
+        }
+
+        if (i.getBooleanExtra(IncomingCallNotification.EXTRA_SHOW_CALL, false)) {
+            CallOverlayActivity.launch(this)
+            return
+        }
+
         val uri = i.data ?: return
         val action = i.action ?: return
         if (uri.scheme == "phoniq") {
@@ -172,7 +303,31 @@ class MainActivity : ComponentActivity() {
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun PhonIQRoot(onDarkThemePreference: (Boolean) -> Unit = {}) {
+private fun PhonIQRoot(
+    onDarkThemePreference: (Boolean) -> Unit = {},
+    onAccentArgbChanged: (Long) -> Unit = {},
+    onAmoledBlackChanged: (Boolean) -> Unit = {},
+    onMaterialYouChanged: (Boolean) -> Unit = {},
+    onDenseThreadsChanged: (Boolean) -> Unit = {},
+    onDialpadStyleChanged: (String) -> Unit = {},
+    onAnswerCallStyleChanged: (String) -> Unit = {},
+    onFollowSystemThemeChanged: (Boolean) -> Unit = {},
+    onThemePresetChanged: (String) -> Unit = {},
+    onFontFamilyChanged: (String) -> Unit = {},
+    onFontSizeTierChanged: (String) -> Unit = {},
+    onHapticsChanged: (Boolean) -> Unit = {},
+    onShowInCallTimerChanged: (Boolean) -> Unit = {},
+    onVerifiedCallerBadgeChanged: (Boolean) -> Unit = {},
+    onOtpAutoCopyChanged: (Boolean) -> Unit = {},
+    onRcsUiChanged: (Boolean) -> Unit = {},
+    onOverBudgetAlertsChanged: (Boolean) -> Unit = {},
+    onBlurMoneyAmountsChanged: (Boolean) -> Unit = {},
+    onAppLockChanged: (Boolean) -> Unit = {},
+    onStealthModeChanged: (Boolean) -> Unit = {},
+    onContactAvatarStyleChanged: (String) -> Unit = {},
+    dialpadStyle: String,
+    answerCallStyle: String,
+) {
     val context = LocalContext.current
     var permissionsGranted by rememberSaveable { mutableStateOf(allCorePermissionsGranted(context)) }
     var permissionsSkipped by rememberSaveable { mutableStateOf(false) }
@@ -235,6 +390,28 @@ private fun PhonIQRoot(onDarkThemePreference: (Boolean) -> Unit = {}) {
                 permissionsGranted = permissionsGranted,
                 onRequestPermissions = { permLauncher.launch(allPerms) },
                 onDarkThemePreference = onDarkThemePreference,
+                onAccentArgbChanged = onAccentArgbChanged,
+                onAmoledBlackChanged = onAmoledBlackChanged,
+                onMaterialYouChanged = onMaterialYouChanged,
+                onDenseThreadsChanged = onDenseThreadsChanged,
+                onDialpadStyleChanged = onDialpadStyleChanged,
+                onAnswerCallStyleChanged = onAnswerCallStyleChanged,
+                onFollowSystemThemeChanged = onFollowSystemThemeChanged,
+                onThemePresetChanged = onThemePresetChanged,
+                onFontFamilyChanged = onFontFamilyChanged,
+                onFontSizeTierChanged = onFontSizeTierChanged,
+                onHapticsChanged = onHapticsChanged,
+                onShowInCallTimerChanged = onShowInCallTimerChanged,
+                onVerifiedCallerBadgeChanged = onVerifiedCallerBadgeChanged,
+                onOtpAutoCopyChanged = onOtpAutoCopyChanged,
+                onRcsUiChanged = onRcsUiChanged,
+                onOverBudgetAlertsChanged = onOverBudgetAlertsChanged,
+                onBlurMoneyAmountsChanged = onBlurMoneyAmountsChanged,
+                onAppLockChanged = onAppLockChanged,
+                onStealthModeChanged = onStealthModeChanged,
+                onContactAvatarStyleChanged = onContactAvatarStyleChanged,
+                dialpadStyle = dialpadStyle,
+                answerCallStyle = answerCallStyle,
             )
         }
         else -> {
@@ -268,12 +445,34 @@ private fun PhonIQShell(
     permissionsGranted: Boolean,
     onRequestPermissions: () -> Unit,
     onDarkThemePreference: (Boolean) -> Unit = {},
+    onAccentArgbChanged: (Long) -> Unit = {},
+    onAmoledBlackChanged: (Boolean) -> Unit = {},
+    onMaterialYouChanged: (Boolean) -> Unit = {},
+    onDenseThreadsChanged: (Boolean) -> Unit = {},
+    onDialpadStyleChanged: (String) -> Unit = {},
+    onAnswerCallStyleChanged: (String) -> Unit = {},
+    onFollowSystemThemeChanged: (Boolean) -> Unit = {},
+    onThemePresetChanged: (String) -> Unit = {},
+    onFontFamilyChanged: (String) -> Unit = {},
+    onFontSizeTierChanged: (String) -> Unit = {},
+    onHapticsChanged: (Boolean) -> Unit = {},
+    onShowInCallTimerChanged: (Boolean) -> Unit = {},
+    onVerifiedCallerBadgeChanged: (Boolean) -> Unit = {},
+    onOtpAutoCopyChanged: (Boolean) -> Unit = {},
+    onRcsUiChanged: (Boolean) -> Unit = {},
+    onOverBudgetAlertsChanged: (Boolean) -> Unit = {},
+    onBlurMoneyAmountsChanged: (Boolean) -> Unit = {},
+    onAppLockChanged: (Boolean) -> Unit = {},
+    onStealthModeChanged: (Boolean) -> Unit = {},
+    onContactAvatarStyleChanged: (String) -> Unit = {},
+    dialpadStyle: String,
+    answerCallStyle: String,
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PhonIQApp
 
     // ViewModels via factories
-    val messagesVm: MessagesViewModel = viewModel(factory = MessagesViewModel.Factory(app.smsRepository))
+    val messagesVm: MessagesViewModel = viewModel(factory = MessagesViewModel.Factory(app.smsRepository, app.callLogRepository, app))
     val phoneVm: PhoneViewModel =
         viewModel(
             factory =
@@ -292,6 +491,7 @@ private fun PhonIQShell(
                     app.smsRepository,
                 ),
         )
+    val remindersVm: RemindersViewModel = viewModel(factory = RemindersViewModel.Factory())
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -312,10 +512,15 @@ private fun PhonIQShell(
     val whoIsThisInput by phoneVm.whoIsThisInput.collectAsStateWithLifecycle(lifecycleOwner)
     val allContacts by phoneVm.allContacts.collectAsStateWithLifecycle(lifecycleOwner)
     val duplicateContactGroups = remember(allContacts) { buildDuplicateContactGroups(allContacts) }
+    val billThreadsForReminders =
+        remember(messageThreads) { messageThreads.filter { MessageThreadCategory.Bill in it.categories } }
     val moneyIntelligence by moneyVm.moneyIntelligence.collectAsStateWithLifecycle(lifecycleOwner)
     val moneyReminderLines by moneyVm.moneyReminderLines.collectAsStateWithLifecycle(lifecycleOwner)
     val salaryFySummary by moneyVm.salaryFySummary.collectAsStateWithLifecycle(lifecycleOwner)
     val upcomingBillHints by moneyVm.upcomingBillHints.collectAsStateWithLifecycle(lifecycleOwner)
+    val investmentHighlights by moneyVm.investmentHighlightTransactions.collectAsStateWithLifecycle(lifecycleOwner)
+    val reminderRows by remindersVm.reminders.collectAsStateWithLifecycle(lifecycleOwner)
+    val remindBeforeDays by remindersVm.remindBeforeDays.collectAsStateWithLifecycle(lifecycleOwner)
 
     val navController = rememberNavController()
     val tabs = listOf(MainTab.Phone, MainTab.Messages, MainTab.Money)
@@ -328,6 +533,7 @@ private fun PhonIQShell(
     var backgroundSyncRunning by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showReminders by remember { mutableStateOf(false) }
     var showWidgetsInfoDialog by remember { mutableStateOf(false) }
     var pendingOpenMessageThreadId by remember { mutableStateOf<String?>(null) }
     val callNoteSavedMessage = stringResource(R.string.snackbar_call_note_saved)
@@ -344,6 +550,8 @@ private fun PhonIQShell(
     var showFullScreenDialpad by remember { mutableStateOf(false) }
     var fullscreenDialpadInitialDigits by remember { mutableStateOf("") }
     var showContactMerge by remember { mutableStateOf(false) }
+    /** When non-null, merge overlay shows only these groups (bulk-merge); null = full duplicate scan. */
+    var mergeOverlayGroups by remember { mutableStateOf<List<DuplicateContactGroup>?>(null) }
     var showMoneyExportSheet by remember { mutableStateOf(false) }
     var showCloudBackupInfoDialog by remember { mutableStateOf(false) }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
@@ -428,19 +636,37 @@ private fun PhonIQShell(
         if (permissionsGranted) runDeviceSync()
     }
 
-    val insertContactLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) {
-        if (permissionsGranted) phoneVm.enqueueContactsRefresh()
+    LaunchedEffect(lifecycleOwner, permissionsGranted) {
+        if (!permissionsGranted) return@LaunchedEffect
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            phoneVm.refreshCallLogFromDevice()
+        }
+    }
+
+    var editingContact by remember {
+        mutableStateOf<EditingContactInit?>(null)
     }
 
     fun openInsertContact(displayName: String?, phoneNumber: String?) {
-        val intent = buildInsertContactIntent(displayName, phoneNumber)
-        try {
-            insertContactLauncher.launch(intent)
-        } catch (_: ActivityNotFoundException) {
-            showMessage(context.getString(R.string.error_no_contacts_app))
-        }
+        val seedNumber = phoneNumber?.trim().orEmpty()
+        val seedPhones =
+            if (seedNumber.isEmpty()) emptyList()
+            else listOf(ContactPhoneEntry(number = seedNumber, label = null))
+        editingContact =
+            EditingContactInit(
+                deviceContactId = 0L,
+                name = displayName?.trim().orEmpty(),
+                phones = seedPhones,
+            )
+    }
+
+    fun openEditContact(deviceContactId: Long, displayName: String, phones: List<ContactPhoneEntry>) {
+        editingContact =
+            EditingContactInit(
+                deviceContactId = deviceContactId,
+                name = displayName,
+                phones = phones,
+            )
     }
 
     fun navigateToMessagesTab() {
@@ -502,6 +728,25 @@ private fun PhonIQShell(
         }
     }
 
+    val pendingThreadFromNotif by PhonIQLaunchRouter.pendingOpenMessageThreadId.collectAsStateWithLifecycle(lifecycleOwner)
+    LaunchedEffect(pendingThreadFromNotif, permissionsGranted) {
+        val tid = pendingThreadFromNotif ?: return@LaunchedEffect
+        if (!permissionsGranted) return@LaunchedEffect
+        PhonIQLaunchRouter.consumeOpenMessageThreadId()
+        pendingOpenMessageThreadId = tid
+        navigateToMessagesTab()
+    }
+
+    var fullScreenIntentHintShown by rememberSaveable { mutableStateOf(false) }
+    val fullScreenIntentHint = stringResource(R.string.snackbar_enable_full_screen_calls)
+    LaunchedEffect(permissionsGranted) {
+        if (!permissionsGranted || fullScreenIntentHintShown) return@LaunchedEffect
+        if (!NotificationPermissionHelper.canUseFullScreenIntent(context)) {
+            fullScreenIntentHintShown = true
+            showMessage(fullScreenIntentHint)
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -538,7 +783,10 @@ private fun PhonIQShell(
                                     showCommunicationInsights = true
                                 }
                                 ShellMenuAction.PhoneWhoIsThis -> phoneVm.openWhoIsThis(null)
-                                ShellMenuAction.PhoneMergeContacts -> showContactMerge = true
+                                ShellMenuAction.PhoneMergeContacts -> {
+                                    mergeOverlayGroups = null
+                                    showContactMerge = true
+                                }
                                 ShellMenuAction.PhoneAfterCall -> showAfterCallHelpDialog = true
                                 ShellMenuAction.PhoneRecording -> showRecordingLibrary = true
                                 ShellMenuAction.MessagesBillHygiene -> {
@@ -546,6 +794,10 @@ private fun PhonIQShell(
                                 }
                                 ShellMenuAction.MessagesOtpCenter -> {
                                     goMessages()
+                                }
+                                ShellMenuAction.MessagesReminders -> {
+                                    goMessages()
+                                    showReminders = true
                                 }
                                 ShellMenuAction.MoneyExport -> showMoneyExportSheet = true
                                 ShellMenuAction.MoneyBudget -> goMoney()
@@ -639,10 +891,23 @@ private fun PhonIQShell(
                         phoneViewModel = phoneVm,
                         onUserMessage = { showMessage(it) },
                         onAddContact = { name, number -> openInsertContact(name, number) },
+                        onEditContact = { id, name, phones -> openEditContact(id, name, phones) },
                         onPickFavoriteContact = { pickFavoriteContact.launch(null) },
                         onOpenDialpadFullScreen = {
                             fullscreenDialpadInitialDigits = ""
                             showFullScreenDialpad = true
+                        },
+                        onBulkMergeContacts = { deviceIds ->
+                            val filtered =
+                                duplicateContactGroups.filter { g ->
+                                    g.contacts.any { c -> c.deviceContactId in deviceIds }
+                                }
+                            if (filtered.isEmpty()) {
+                                showMessage(context.getString(R.string.bulk_merge_none))
+                            } else {
+                                mergeOverlayGroups = filtered
+                                showContactMerge = true
+                            }
                         },
                     )
                 }
@@ -698,6 +963,7 @@ private fun PhonIQShell(
                         moneyReminderLines = moneyReminderLines,
                         salaryFySummary = salaryFySummary,
                         upcomingBillHints = upcomingBillHints,
+                        investmentHighlights = investmentHighlights,
                     )
                 }
             }
@@ -711,6 +977,7 @@ private fun PhonIQShell(
         var lastCall by remember { mutableStateOf<com.phoniq.app.telecom.ActiveCallInfo?>(null) }
         var callDurationSecs by remember { mutableStateOf(0) }
         var showAfterCallSheet by remember { mutableStateOf(false) }
+        var previousActiveCall by remember { mutableStateOf<com.phoniq.app.telecom.ActiveCallInfo?>(null) }
 
         // Observe call state transitions
         LaunchedEffect(activeCall?.state) {
@@ -726,9 +993,19 @@ private fun PhonIQShell(
                 CallState.DISCONNECTED -> {
                     lastCall = activeCall
                     showAfterCallSheet = true
+                    phoneVm.refreshCallLogFromDevice()
                 }
                 else -> Unit
             }
+        }
+
+        // [hangUp]/[reject] clear callInfo without a DISCONNECTED frame; still resync call log.
+        LaunchedEffect(activeCall) {
+            val prev = previousActiveCall
+            if (prev != null && activeCall == null) {
+                phoneVm.scheduleCallLogResyncAfterCall()
+            }
+            previousActiveCall = activeCall
         }
 
         AnimatedVisibility(
@@ -742,6 +1019,9 @@ private fun PhonIQShell(
                         IncomingCallScreen(
                             callerName = info.callerName,
                             callerNumber = info.callerNumber,
+                            deviceContactId = info.deviceContactId,
+                            dialpadStyle = dialpadStyle,
+                            answerCallStyle = answerCallStyle,
                             onAnswer = { CallStateRepository.answer() },
                             onDecline = { CallStateRepository.reject() },
                             onUserMessage = { showMessage(it) },
@@ -750,7 +1030,10 @@ private fun PhonIQShell(
                         InCallScreen(
                             callerName = info.callerName,
                             callerNumber = info.callerNumber,
+                            deviceContactId = info.deviceContactId,
                             phase = InCallUiPhase.Dialing,
+                            dialpadStyle = dialpadStyle,
+                            answerCallStyle = answerCallStyle,
                             isCallRecordingActive = false,
                             canControlCallRecording = false,
                             onToggleCallRecording = {},
@@ -758,10 +1041,13 @@ private fun PhonIQShell(
                             onUserMessage = { showMessage(it) },
                         )
                     else ->
-                        InCallScreen(
-                            callerName = info.callerName,
-                            callerNumber = info.callerNumber,
-                            phase = InCallUiPhase.Active,
+                InCallScreen(
+                    callerName = info.callerName,
+                    callerNumber = info.callerNumber,
+                    deviceContactId = info.deviceContactId,
+                    phase = InCallUiPhase.Active,
+                            dialpadStyle = dialpadStyle,
+                            answerCallStyle = answerCallStyle,
                             spamRiskLabel = null,
                             isCallRecordingActive = isCallRecording,
                             canControlCallRecording = true,
@@ -776,7 +1062,7 @@ private fun PhonIQShell(
                                     showMessage(recordingStartedMessage)
                                 }
                             },
-                            onHangUp = { CallStateRepository.hangUp() },
+                    onHangUp = { CallStateRepository.hangUp() },
                             onUserMessage = { showMessage(it) },
                         )
                 }
@@ -832,11 +1118,27 @@ private fun PhonIQShell(
             )
         }
 
+        editingContact?.let { init ->
+            EditContactOverlay(
+                initialDeviceContactId = init.deviceContactId,
+                initialName = init.name,
+                initialPhones = init.phones,
+                phoneViewModel = phoneVm,
+                onDismiss = { editingContact = null },
+                onSaved = { _ ->
+                    editingContact = null
+                    phoneVm.enqueueContactsRefresh()
+                },
+                onUserMessage = { showMessage(it) },
+            )
+        }
+
         if (showFullScreenDialpad) {
             FullScreenDialpadOverlay(
                 initialDigits = fullscreenDialpadInitialDigits,
                 contacts = allContacts,
                 recentCalls = recentCalls,
+                dialpadStyle = dialpadStyle,
                 onDismiss = {
                     showFullScreenDialpad = false
                     fullscreenDialpadInitialDigits = ""
@@ -857,7 +1159,7 @@ private fun PhonIQShell(
                 moneyTransactions = moneyRealTransactions,
                 onDialNumber = { num ->
                     showSearch = false
-                    if (!context.startDialer(num)) {
+                    if (!context.placeOrDial(num, null)) {
                         showMessage(context.getString(R.string.toast_dial_failed))
                     }
                 },
@@ -882,10 +1184,55 @@ private fun PhonIQShell(
                 },
             )
         }
+        if (showReminders) {
+            RemindersOverlay(
+                reminders = reminderRows,
+                remindBeforeDays = remindBeforeDays,
+                onRemindBeforeDaysChange = { remindersVm.setRemindBeforeDays(it) },
+                onDismiss = { showReminders = false },
+                onAdd = { title, dueAt -> remindersVm.addReminder(title, dueAt) },
+                onSetDone = { id, done -> remindersVm.setDone(id, done) },
+                onSnooze = { id, add -> remindersVm.snooze(id, add) },
+                onImportBillSms = { remindersVm.importFromBillThreads(billThreadsForReminders) },
+                onOpenThread = { threadId ->
+                    pendingOpenMessageThreadId = threadId
+                    showReminders = false
+                    if (currentRoute != MainTab.Messages.route) {
+                        navController.navigate(MainTab.Messages.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                },
+                onUserMessage = { showMessage(it) },
+            )
+        }
+
         if (showSettings) {
             SettingsFullScreenOverlay(
                 onDismiss = { showSettings = false },
                 onDarkThemePreference = onDarkThemePreference,
+                onAccentArgbChanged = onAccentArgbChanged,
+                onAmoledBlackChanged = onAmoledBlackChanged,
+                onMaterialYouChanged = onMaterialYouChanged,
+                onDenseThreadsChanged = onDenseThreadsChanged,
+                onDialpadStyleChanged = onDialpadStyleChanged,
+                onAnswerCallStyleChanged = onAnswerCallStyleChanged,
+                onFollowSystemThemeChanged = onFollowSystemThemeChanged,
+                onThemePresetChanged = onThemePresetChanged,
+                onFontFamilyChanged = onFontFamilyChanged,
+                onFontSizeTierChanged = onFontSizeTierChanged,
+                onHapticsChanged = onHapticsChanged,
+                onShowInCallTimerChanged = onShowInCallTimerChanged,
+                onVerifiedCallerBadgeChanged = onVerifiedCallerBadgeChanged,
+                onOtpAutoCopyChanged = onOtpAutoCopyChanged,
+                onRcsUiChanged = onRcsUiChanged,
+                onOverBudgetAlertsChanged = onOverBudgetAlertsChanged,
+                onBlurMoneyAmountsChanged = onBlurMoneyAmountsChanged,
+                onAppLockChanged = onAppLockChanged,
+                onStealthModeChanged = onStealthModeChanged,
+                onContactAvatarStyleChanged = onContactAvatarStyleChanged,
                 onExportLocalDatabase = {
                     exportDbLauncher.launch(
                         "phoniq-backup-${System.currentTimeMillis()}.db",
@@ -1068,8 +1415,11 @@ private fun PhonIQShell(
 
         if (showContactMerge) {
             MergeContactsOverlay(
-                groups = duplicateContactGroups,
-                onDismiss = { showContactMerge = false },
+                groups = mergeOverlayGroups ?: duplicateContactGroups,
+                onDismiss = {
+                    showContactMerge = false
+                    mergeOverlayGroups = null
+                },
                 onUserMessage = { showMessage(it) },
             )
         }

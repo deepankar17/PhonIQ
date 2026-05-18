@@ -50,6 +50,7 @@ fun List<SmsMessageEntity>.toKeyedConversationBubbles(context: Context): List<Ke
         val time = DateFormat.getTimeFormat(context).format(Date(msg.timestamp))
         val parse = parser.parse(msg.sender, msg.body)
         val otp = parse.otp
+        val txn = parse.transaction
         val bubble =
             if (otp != null && parse.category == SmsCategory.OTP) {
                 val ttlSec = otp.ttlSeconds.coerceIn(60, 3600)
@@ -66,6 +67,34 @@ fun List<SmsMessageEntity>.toKeyedConversationBubbles(context: Context): List<Ke
                     footer = footer,
                     time = time,
                     expiresAtEpochMillis = expiresAt,
+                )
+            } else if (
+                txn != null &&
+                    (
+                        parse.category == SmsCategory.TRANSACTION ||
+                            msg.isTransaction ||
+                            msg.category == "TRANSACTION"
+                        )
+            ) {
+                val structured = txn.toTxnBubbleStructured(msg.body)
+                ConversationBubble.TxnBubble(
+                    maskedAccount = structured.maskedAccount,
+                    narrative = structured.narrative,
+                    typeLabel =
+                        context.getString(
+                            if (structured.isCredit) {
+                                R.string.thread_txn_credited
+                            } else {
+                                R.string.thread_txn_debited
+                            },
+                        ),
+                    amountLabel = structured.amountLabel,
+                    isCredit = structured.isCredit,
+                    availableBalanceLabel = structured.availableBalanceLabel,
+                    emoji = structured.emoji,
+                    categoryTag = structured.categoryTag,
+                    fullBody = structured.fullBody,
+                    time = time,
                 )
             } else {
                 ConversationBubble.TextMessage(

@@ -7,6 +7,8 @@ import android.content.Intent
 import android.provider.Telephony
 import com.phoniq.app.PhonIQApp
 import com.phoniq.app.data.db.entity.SmsMessageEntity
+import com.phoniq.app.domain.sms.SmsParser
+import com.phoniq.app.notification.SmsIncomingNotifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -55,6 +57,14 @@ class SmsReceiver : BroadcastReceiver() {
         }
 
         val app = context.applicationContext as PhonIQApp
+        val parseResult = app.smsParser.parse(sender, body)
+        SmsIncomingNotifier.maybeShow(
+            context = context.applicationContext,
+            sender = sender,
+            body = body,
+            category = parseResult.category,
+            threadId = sender,
+        )
         scope.launch {
             runCatching { app.smsRepository.syncDeviceSms(throttleReceiverBurst = true) }
         }
@@ -92,6 +102,13 @@ class SmsReceiver : BroadcastReceiver() {
                         isRead = false,
                     )
                 app.database.smsDao().insert(entity)
+                SmsIncomingNotifier.maybeShow(
+                    context = context.applicationContext,
+                    sender = sender,
+                    body = body,
+                    category = parseResult.category,
+                    threadId = threadId,
+                )
             }
         }
     }

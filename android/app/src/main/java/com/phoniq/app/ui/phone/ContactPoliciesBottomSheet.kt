@@ -1,5 +1,12 @@
 package com.phoniq.app.ui.phone
 
+import android.app.Activity
+import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,15 +28,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.phoniq.app.R
 import com.phoniq.app.data.model.ContactRow
 import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
+import com.phoniq.app.util.ContactPoliciesStore
 
 /**
- * Mock per-contact routing UI only — toggles are held in composition state (not persisted).
+ * Per-contact routing preferences (ring mode, preferred SIM, custom ringtone).
+ * Incoming notifications respect [ContactPoliciesStore] via [com.phoniq.app.telecom.IncomingCallNotification].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,13 +47,60 @@ fun ContactPoliciesBottomSheet(
     contact: ContactRow,
     onDismissRequest: () -> Unit,
 ) {
+    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val ringNormally = remember { mutableStateOf(true) }
-    val defaultSim = remember { mutableIntStateOf(0) } // 0 = SIM 1, 1 = SIM 2
-    val customTone = remember { mutableStateOf(false) }
+    val initial = remember(contact.id) { ContactPoliciesStore.load(context, contact) }
+    val ringNormally = remember(contact.id) { mutableStateOf(initial.ringNormally) }
+    val defaultSim = remember(contact.id) { mutableIntStateOf(initial.defaultSimIndex) }
+    val customTone = remember(contact.id) { mutableStateOf(initial.customRingtoneEnabled) }
+    val ringtoneUriStr = remember(contact.id) { mutableStateOf(initial.customRingtoneUri) }
+
+    fun currentState(): ContactPoliciesStore.State =
+        ContactPoliciesStore.State(
+            ringNormally = ringNormally.value,
+            defaultSimIndex = defaultSim.intValue,
+            customRingtoneEnabled = customTone.value,
+            customRingtoneUri = ringtoneUriStr.value,
+        )
+
+    val ringtoneLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+            val data = result.data ?: return@rememberLauncherForActivityResult
+            val uri: Uri? =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+                }
+            ringtoneUriStr.value = uri?.toString().orEmpty()
+        }
+
+    fun launchRingtonePicker() {
+        val existing =
+            ringtoneUriStr.value.takeIf { it.isNotBlank() }?.let { Uri.parse(it) }
+                ?: RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE)
+        val intent =
+            Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
+                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing)
+            }
+        ringtoneLauncher.launch(intent)
+    }
+
+    fun persistAndDismiss() {
+        ContactPoliciesStore.save(context, contact, currentState())
+        onDismissRequest()
+    }
 
     ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
+        onDismissRequest = {
+            ContactPoliciesStore.save(context, contact, currentState())
+            onDismissRequest()
+        },
         sheetState = sheetState,
     ) {
         Column(
@@ -131,8 +188,17 @@ fun ContactPoliciesBottomSheet(
                 }
                 Switch(
                     checked = customTone.value,
-                    onCheckedChange = { customTone.value = it },
+                    onCheckedChange = {
+                        customTone.value = it
+                        if (!it) ringtoneUriStr.value = ""
+                    },
                 )
+            }
+            if (customTone.value) {
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { launchRingtonePicker() }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.contact_policy_choose_ringtone))
+                }
             }
             Spacer(Modifier.height(8.dp))
             Text(
@@ -141,7 +207,7 @@ fun ContactPoliciesBottomSheet(
                 color = PhoniqTextSecondaryMock,
             )
             Spacer(Modifier.height(12.dp))
-            TextButton(onClick = onDismissRequest, modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = { persistAndDismiss() }, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.action_done))
             }
         }

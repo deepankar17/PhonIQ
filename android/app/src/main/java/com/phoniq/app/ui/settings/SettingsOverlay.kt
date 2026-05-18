@@ -60,7 +60,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -81,30 +84,49 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.phoniq.app.util.PersonalizationStore
+import com.phoniq.app.util.ThemeUiBindings
+import com.phoniq.app.util.contactIdsWithPhoto
 import com.phoniq.app.R
 import com.phoniq.app.telecom.CallRecordingPreferences
-import com.phoniq.app.ui.theme.PhoniqAccent
-import com.phoniq.app.ui.theme.PhoniqBackground
-import com.phoniq.app.ui.theme.PhoniqBorder
-import com.phoniq.app.ui.theme.PhoniqBorderSoft
-import com.phoniq.app.ui.theme.PhoniqOnBackground
-import com.phoniq.app.ui.theme.PhoniqOnSurfaceMuted
-import com.phoniq.app.ui.theme.PhoniqSecondary
-import com.phoniq.app.ui.theme.PhoniqSurface
-import com.phoniq.app.ui.theme.PhoniqSurfaceLow
-import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
+import com.phoniq.app.ui.phone.PersonalizationDialpadStylePreview
+import com.phoniq.app.ui.phone.AnswerCallStylePreview
+import com.phoniq.app.ui.components.ContactPhotoAvatar
+import com.phoniq.app.ui.theme.LocalContactAvatarStyle
+import com.phoniq.app.ui.theme.LocalThemePreset
+import com.phoniq.app.ui.theme.fontFamilyForPersonalization
+import com.phoniq.app.ui.theme.fontTierMultiplier
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private enum class SettingsPane { Root, Personalization, DataDevice }
-
-private val ToggleTrackOff = Color(0xFF2A2A3A)
-private val ChevronMuted = Color(0xFF444444)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsFullScreenOverlay(
     onDismiss: () -> Unit,
     onDarkThemePreference: (Boolean) -> Unit = {},
+    onAccentArgbChanged: (Long) -> Unit = {},
+    onAmoledBlackChanged: (Boolean) -> Unit = {},
+    onMaterialYouChanged: (Boolean) -> Unit = {},
+    onDenseThreadsChanged: (Boolean) -> Unit = {},
+    onDialpadStyleChanged: (String) -> Unit = {},
+    onAnswerCallStyleChanged: (String) -> Unit = {},
+    onFollowSystemThemeChanged: (Boolean) -> Unit = {},
+    onThemePresetChanged: (String) -> Unit = {},
+    onFontFamilyChanged: (String) -> Unit = {},
+    onFontSizeTierChanged: (String) -> Unit = {},
+    onHapticsChanged: (Boolean) -> Unit = {},
+    onShowInCallTimerChanged: (Boolean) -> Unit = {},
+    onVerifiedCallerBadgeChanged: (Boolean) -> Unit = {},
+    onOtpAutoCopyChanged: (Boolean) -> Unit = {},
+    onRcsUiChanged: (Boolean) -> Unit = {},
+    onOverBudgetAlertsChanged: (Boolean) -> Unit = {},
+    onBlurMoneyAmountsChanged: (Boolean) -> Unit = {},
+    onAppLockChanged: (Boolean) -> Unit = {},
+    onStealthModeChanged: (Boolean) -> Unit = {},
+    onContactAvatarStyleChanged: (String) -> Unit = {},
     onExportLocalDatabase: () -> Unit = {},
     onRestoreLocalDatabase: () -> Unit = {},
     onInformCloudBackup: () -> Unit = {},
@@ -115,17 +137,18 @@ fun SettingsFullScreenOverlay(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        Surface(modifier = Modifier.fillMaxSize(), color = PhoniqBackground) {
+        val scheme = MaterialTheme.colorScheme
+        Surface(modifier = Modifier.fillMaxSize(), color = scheme.background) {
             val barColors =
                 TopAppBarDefaults.topAppBarColors(
-                    containerColor = PhoniqSurfaceLow,
-                    titleContentColor = PhoniqOnBackground,
-                    navigationIconContentColor = PhoniqOnBackground,
-                    actionIconContentColor = PhoniqOnBackground,
+                    containerColor = scheme.surfaceContainerLow,
+                    titleContentColor = scheme.onSurface,
+                    navigationIconContentColor = scheme.onSurface,
+                    actionIconContentColor = scheme.onSurface,
                 )
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
-                containerColor = PhoniqBackground,
+                containerColor = scheme.background,
                 topBar = {
                     when (pane) {
                         SettingsPane.Root ->
@@ -188,7 +211,29 @@ fun SettingsFullScreenOverlay(
                                 onWidgetsInfo = onWidgetsInfo,
                             )
                         SettingsPane.Personalization ->
-                            PersonalizationBody(onDarkThemePreference = onDarkThemePreference)
+                            PersonalizationBody(
+                                onDarkThemePreference = onDarkThemePreference,
+                                onAccentArgbChanged = onAccentArgbChanged,
+                                onAmoledBlackChanged = onAmoledBlackChanged,
+                                onMaterialYouChanged = onMaterialYouChanged,
+                                onDenseThreadsChanged = onDenseThreadsChanged,
+                                onDialpadStyleChanged = onDialpadStyleChanged,
+                                onAnswerCallStyleChanged = onAnswerCallStyleChanged,
+                                onFollowSystemThemeChanged = onFollowSystemThemeChanged,
+                                onThemePresetChanged = onThemePresetChanged,
+                                onFontFamilyChanged = onFontFamilyChanged,
+                                onFontSizeTierChanged = onFontSizeTierChanged,
+                                onHapticsChanged = onHapticsChanged,
+                                onShowInCallTimerChanged = onShowInCallTimerChanged,
+                                onVerifiedCallerBadgeChanged = onVerifiedCallerBadgeChanged,
+                                onOtpAutoCopyChanged = onOtpAutoCopyChanged,
+                                onRcsUiChanged = onRcsUiChanged,
+                                onOverBudgetAlertsChanged = onOverBudgetAlertsChanged,
+                                onBlurMoneyAmountsChanged = onBlurMoneyAmountsChanged,
+                                onAppLockChanged = onAppLockChanged,
+                                onStealthModeChanged = onStealthModeChanged,
+                                onContactAvatarStyleChanged = onContactAvatarStyleChanged,
+                            )
                         SettingsPane.DataDevice ->
                             DataDeviceBody(
                                 onExportLocalDatabase = onExportLocalDatabase,
@@ -214,7 +259,14 @@ private fun RootBody(
             label = stringResource(R.string.settings_row_personalization),
             sub = stringResource(R.string.settings_row_personalization_sub),
             icon = Icons.Default.Palette,
-            iconBrush = Brush.linearGradient(colors = listOf(PhoniqAccent, PhoniqSecondary)),
+            iconBrush =
+                Brush.linearGradient(
+                    colors =
+                        listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.secondary,
+                        ),
+                ),
             onClick = onPersonalization,
         )
     }
@@ -230,7 +282,10 @@ private fun RootBody(
                 ),
             onClick = onDataDevice,
         )
-        HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
         SettingsNavRow(
             label = stringResource(R.string.settings_row_widgets),
             sub = stringResource(R.string.settings_row_widgets_sub),
@@ -245,51 +300,98 @@ private fun RootBody(
 }
 
 @Composable
-private fun PersonalizationBody(onDarkThemePreference: (Boolean) -> Unit = {}) {
+private fun PersonalizationBody(
+    onDarkThemePreference: (Boolean) -> Unit = {},
+    onAccentArgbChanged: (Long) -> Unit = {},
+    onAmoledBlackChanged: (Boolean) -> Unit = {},
+    onMaterialYouChanged: (Boolean) -> Unit = {},
+    onDenseThreadsChanged: (Boolean) -> Unit = {},
+    onDialpadStyleChanged: (String) -> Unit = {},
+    onAnswerCallStyleChanged: (String) -> Unit = {},
+    onFollowSystemThemeChanged: (Boolean) -> Unit = {},
+    onThemePresetChanged: (String) -> Unit = {},
+    onFontFamilyChanged: (String) -> Unit = {},
+    onFontSizeTierChanged: (String) -> Unit = {},
+    onHapticsChanged: (Boolean) -> Unit = {},
+    onShowInCallTimerChanged: (Boolean) -> Unit = {},
+    onVerifiedCallerBadgeChanged: (Boolean) -> Unit = {},
+    onOtpAutoCopyChanged: (Boolean) -> Unit = {},
+    onRcsUiChanged: (Boolean) -> Unit = {},
+    onOverBudgetAlertsChanged: (Boolean) -> Unit = {},
+    onBlurMoneyAmountsChanged: (Boolean) -> Unit = {},
+    onAppLockChanged: (Boolean) -> Unit = {},
+    onStealthModeChanged: (Boolean) -> Unit = {},
+    onContactAvatarStyleChanged: (String) -> Unit = {},
+) {
     val context = LocalContext.current
-    var selectedTheme by remember { mutableStateOf("Deep Dark") }
-    val accentColors =
-        listOf(
-            Color(0xFF6C63FF),
-            Color(0xFF00D4AA),
-            Color(0xFF2196F3),
-            Color(0xFFE91E63),
-            Color(0xFFFF9800),
-            Color(0xFF4CAF50),
-            Color(0xFFF44336),
-            Color(0xFF9C27B0),
-            Color(0xFF00BCD4),
-            Color(0xFFFFEB3B),
-        )
-    var selectedAccent by remember { mutableStateOf(0) }
+    val initial = remember { PersonalizationStore.load(context) }
+    val accentArgbList =
+        remember {
+            listOf(
+                0xFF6C63FFL,
+                0xFF00D4AAL,
+                0xFF2196F3L,
+                0xFFE91E63L,
+                0xFFFF9800L,
+                0xFF4CAF50L,
+                0xFFF44336L,
+                0xFF9C27B0L,
+                0xFF00BCD4L,
+                0xFFFFEB3BL,
+            )
+        }
+    val accentColors = remember { accentArgbList.map { Color(it) } }
 
-    var selectedDialpad by remember { mutableStateOf("Classic") }
+    var selectedTheme by remember { mutableStateOf(initial.themePreset) }
+    var selectedAccent by remember {
+        mutableIntStateOf(
+            accentArgbList.indexOf(initial.accentArgb).let { if (it < 0) 0 else it },
+        )
+    }
+
+    var selectedDialpad by remember { mutableStateOf(initial.dialpadStyle) }
     val dialpadStyles = listOf("Classic", "Rounded", "Minimal", "iOS-like", "Material 3")
 
-    var selectedFont by remember { mutableStateOf("Roboto") }
+    var selectedAnswer by remember { mutableStateOf(initial.answerCallStyle) }
+    val answerStyles =
+        listOf(
+            PersonalizationStore.ANSWER_STYLE_CLASSIC,
+            PersonalizationStore.ANSWER_STYLE_GLASS,
+            PersonalizationStore.ANSWER_STYLE_SAMSUNG_LIQUID,
+        )
+
+    var selectedFont by remember { mutableStateOf(initial.fontFamily) }
     val fonts = listOf("Roboto", "Nunito", "Mono", "Serif", "System")
 
-    var selectedSize by remember { mutableStateOf("Normal") }
+    var selectedSize by remember { mutableStateOf(initial.fontSizeTier) }
     val fontSizes = listOf("Small", "Normal", "Large", "XL")
 
-    var amoledDark by remember { mutableStateOf(false) }
-    var autoDayNight by remember { mutableStateOf(false) }
-    var materialYou by remember { mutableStateOf(false) }
-    var haptics by remember { mutableStateOf(true) }
+    var amoledDark by remember { mutableStateOf(initial.amoledBlack) }
+    var autoDayNight by remember { mutableStateOf(initial.followSystemTheme) }
+    var materialYou by remember { mutableStateOf(initial.materialYou) }
+    var haptics by remember { mutableStateOf(initial.hapticsEnabled) }
 
-    var showCallTimer by remember { mutableStateOf(true) }
+    var showCallTimer by remember { mutableStateOf(initial.showInCallTimer) }
     var callRecordingEnabled by remember { mutableStateOf(CallRecordingPreferences.isEnabled(context)) }
-    var verifiedBadge by remember { mutableStateOf(true) }
+    var verifiedBadge by remember { mutableStateOf(initial.verifiedCallerBadge) }
 
-    var otpAutoCopy by remember { mutableStateOf(true) }
-    var rcsEnabled by remember { mutableStateOf(true) }
-    var denseThreads by remember { mutableStateOf(true) }
+    var otpAutoCopy by remember { mutableStateOf(initial.otpAutoCopy) }
+    var rcsEnabled by remember { mutableStateOf(initial.rcsUiEnabled) }
+    var denseThreads by remember { mutableStateOf(initial.denseThreads) }
 
-    var overBudgetAlert by remember { mutableStateOf(true) }
+    var overBudgetAlert by remember { mutableStateOf(initial.overBudgetAlerts) }
 
-    var appLock by remember { mutableStateOf(false) }
-    var blurAmounts by remember { mutableStateOf(false) }
-    var stealthMode by remember { mutableStateOf(false) }
+    var appLock by remember { mutableStateOf(initial.appLockEnabled) }
+    var blurAmounts by remember { mutableStateOf(initial.blurMoneyAmounts) }
+    var stealthMode by remember { mutableStateOf(initial.stealthMode) }
+
+    val callUiBundled = ThemeUiBindings.themeUsesDedicatedCallPack(selectedTheme)
+    val answerChipSelection =
+        if (callUiBundled) {
+            ThemeUiBindings.defaultAnswerCallStyleForTheme(selectedTheme)
+        } else {
+            selectedAnswer
+        }
 
     Column(Modifier.padding(bottom = 32.dp)) {
         SettingsSectionLabel(stringResource(R.string.perso_theme_section), topPaddingExtra = 4.dp)
@@ -298,29 +400,182 @@ private fun PersonalizationBody(onDarkThemePreference: (Boolean) -> Unit = {}) {
                 selected = selectedTheme,
                 onSelect = { name ->
                     selectedTheme = name
-                    onDarkThemePreference(name != "Light")
+                    autoDayNight = false
+                    val dark = name != PersonalizationStore.THEME_LIGHT
+                    val amoled = name == PersonalizationStore.THEME_AMOLED
+                    amoledDark = amoled
+                    selectedDialpad = ThemeUiBindings.defaultDialpadStorageForTheme(name)
+                    selectedAnswer = ThemeUiBindings.defaultAnswerCallStyleForTheme(name)
+                    PersonalizationStore.update(context) { prev ->
+                        ThemeUiBindings.applyBundledDefaultsForTheme(prev, name).copy(
+                            followSystemTheme = false,
+                            darkTheme = dark,
+                            amoledBlack = amoled,
+                        )
+                    }
+                    onFollowSystemThemeChanged(false)
+                    onThemePresetChanged(name)
+                    onDialpadStyleChanged(selectedDialpad)
+                    onAnswerCallStyleChanged(selectedAnswer)
+                    onDarkThemePreference(dark)
+                    onAmoledBlackChanged(amoled)
                 },
             )
         }
 
-        SettingsSectionLabel(stringResource(R.string.perso_accent_section))
-        SettingsCard {
-            AccentSwatchRow(colors = accentColors, selected = selectedAccent, onSelect = { selectedAccent = it })
-        }
-
         SettingsSectionLabel(stringResource(R.string.perso_dialpad_section))
         SettingsCard {
-            ChipRow(options = dialpadStyles, selected = selectedDialpad, onSelect = { selectedDialpad = it })
+            if (callUiBundled) {
+                Text(
+                    stringResource(R.string.perso_call_style_locked_sub),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                )
+            }
+            ChipRow(
+                options = dialpadStyles,
+                selected = selectedDialpad,
+                enabled = !callUiBundled,
+                onSelect = {
+                    selectedDialpad = it
+                    PersonalizationStore.update(context) { s -> s.copy(dialpadStyle = it) }
+                    onDialpadStyleChanged(it)
+                },
+            )
+            CompositionLocalProvider(LocalThemePreset provides selectedTheme) {
+                PersonalizationDialpadStylePreview(dialpadStyle = selectedDialpad)
+            }
+        }
+
+        SettingsSectionLabel(stringResource(R.string.perso_answer_style_section))
+        SettingsCard {
+            if (callUiBundled) {
+                Text(
+                    stringResource(R.string.perso_call_style_locked_sub),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                )
+            }
+            ChipRow(
+                options = answerStyles,
+                selected = answerChipSelection,
+                enabled = !callUiBundled,
+                onSelect = {
+                    selectedAnswer = it
+                    PersonalizationStore.update(context) { s -> s.copy(answerCallStyle = it) }
+                    onAnswerCallStyleChanged(it)
+                },
+            )
+            AnswerCallStylePreview(answerCallStyle = answerChipSelection)
+        }
+
+        SettingsSectionLabel(stringResource(R.string.perso_contact_avatar_section))
+        SettingsCard {
+            Text(
+                stringResource(R.string.perso_contact_avatar_sub),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            )
+            var selectedAvatarStyle by remember { mutableStateOf(initial.contactAvatarStyle) }
+            val avatarStyles =
+                listOf(
+                    PersonalizationStore.CONTACT_AVATAR_ROUND,
+                    PersonalizationStore.CONTACT_AVATAR_SQUARE,
+                    PersonalizationStore.CONTACT_AVATAR_SQUIRCLE,
+                    PersonalizationStore.CONTACT_AVATAR_STAR,
+                    PersonalizationStore.CONTACT_AVATAR_TEARDROP,
+                    PersonalizationStore.CONTACT_AVATAR_EXTRA,
+                )
+            ChipRow(
+                options = avatarStyles,
+                selected = selectedAvatarStyle,
+                onSelect = {
+                    selectedAvatarStyle = it
+                    PersonalizationStore.update(context) { s -> s.copy(contactAvatarStyle = it) }
+                    onContactAvatarStyleChanged(it)
+                },
+            )
+            var photoPreviewIds by remember { mutableStateOf<List<Long>>(emptyList()) }
+            LaunchedEffect(Unit) {
+                photoPreviewIds = withContext(Dispatchers.IO) { context.contactIdsWithPhoto(5) }
+            }
+            CompositionLocalProvider(LocalContactAvatarStyle provides selectedAvatarStyle) {
+                if (photoPreviewIds.isEmpty()) {
+                    Text(
+                        stringResource(R.string.perso_contact_avatar_preview_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    )
+                } else {
+                    val gPrev0 = MaterialTheme.colorScheme.primary
+                    val gPrev1 = MaterialTheme.colorScheme.secondary
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .padding(bottom = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        photoPreviewIds.forEach { cid ->
+                            ContactPhotoAvatar(
+                                deviceContactId = cid,
+                                initials = "•",
+                                gradientStart = gPrev0,
+                                gradientEnd = gPrev1,
+                                size = 48.dp,
+                                fontSize = 18.sp,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingsSectionLabel(stringResource(R.string.perso_accent_section))
+        SettingsCard {
+            AccentSwatchRow(
+                colors = accentColors,
+                selected = selectedAccent,
+                onSelect = { idx ->
+                    selectedAccent = idx
+                    val argb = accentArgbList[idx]
+                    PersonalizationStore.update(context) { it.copy(accentArgb = argb) }
+                    onAccentArgbChanged(argb)
+                },
+            )
         }
 
         SettingsSectionLabel(stringResource(R.string.perso_font_family_section))
         SettingsCard {
-            ChipRow(options = fonts, selected = selectedFont, onSelect = { selectedFont = it })
+            FontFamilyChipRow(
+                options = fonts,
+                selected = selectedFont,
+                onSelect = {
+                    selectedFont = it
+                    PersonalizationStore.update(context) { s -> s.copy(fontFamily = it) }
+                    onFontFamilyChanged(it)
+                },
+            )
         }
 
         SettingsSectionLabel(stringResource(R.string.perso_font_size_section))
         SettingsCard {
-            ChipRow(options = fontSizes, selected = selectedSize, onSelect = { selectedSize = it })
+            FontSizeTierChipRow(
+                options = fontSizes,
+                selected = selectedSize,
+                selectedFontKey = selectedFont,
+                onSelect = {
+                    selectedSize = it
+                    PersonalizationStore.update(context) { s -> s.copy(fontSizeTier = it) }
+                    onFontSizeTierChanged(it)
+                },
+            )
         }
 
         SettingsSectionLabel(stringResource(R.string.perso_display_section))
@@ -329,33 +584,71 @@ private fun PersonalizationBody(onDarkThemePreference: (Boolean) -> Unit = {}) {
                 stringResource(R.string.perso_amoled_dark),
                 stringResource(R.string.perso_amoled_dark_sub),
                 Icons.Default.DarkMode,
-                PhoniqAccent,
+                MaterialTheme.colorScheme.primary,
                 amoledDark,
-            ) { amoledDark = it }
-            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            ) { v ->
+                amoledDark = v
+                if (v && selectedTheme != PersonalizationStore.THEME_LIGHT) {
+                    selectedTheme = PersonalizationStore.THEME_AMOLED
+                } else if (!v && selectedTheme == PersonalizationStore.THEME_AMOLED) {
+                    selectedTheme = PersonalizationStore.THEME_DEEP_DARK
+                }
+                PersonalizationStore.update(context) {
+                    it.copy(
+                        amoledBlack = v,
+                        darkTheme = selectedTheme != PersonalizationStore.THEME_LIGHT,
+                        themePreset = selectedTheme,
+                    )
+                }
+                onAmoledBlackChanged(v)
+                onThemePresetChanged(selectedTheme)
+                onDarkThemePreference(selectedTheme != PersonalizationStore.THEME_LIGHT)
+            }
+            HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
             SettingsToggleRow(
                 stringResource(R.string.perso_auto_theme),
                 stringResource(R.string.perso_auto_theme_sub),
                 Icons.Default.LightMode,
                 Color(0xFFF5A623),
                 autoDayNight,
-            ) { autoDayNight = it }
-            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            ) { v ->
+                autoDayNight = v
+                PersonalizationStore.update(context) { it.copy(followSystemTheme = v) }
+                onFollowSystemThemeChanged(v)
+            }
+            HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
             SettingsToggleRow(
                 stringResource(R.string.perso_material_you),
                 stringResource(R.string.perso_material_you_sub),
                 Icons.Default.Palette,
-                PhoniqSecondary,
+                MaterialTheme.colorScheme.secondary,
                 materialYou,
-            ) { materialYou = it }
-            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            ) { v ->
+                materialYou = v
+                PersonalizationStore.update(context) { it.copy(materialYou = v) }
+                onMaterialYouChanged(v)
+            }
+            HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
             SettingsToggleRow(
                 stringResource(R.string.perso_haptics),
                 stringResource(R.string.perso_haptics_sub),
                 Icons.Default.Vibration,
                 Color(0xFF4499FF),
                 haptics,
-            ) { haptics = it }
+            ) { v ->
+                haptics = v
+                PersonalizationStore.update(context) { s -> s.copy(hapticsEnabled = v) }
+                onHapticsChanged(v)
+            }
         }
 
         SettingsSectionLabel(stringResource(R.string.perso_call_section))
@@ -366,8 +659,15 @@ private fun PersonalizationBody(onDarkThemePreference: (Boolean) -> Unit = {}) {
                 Icons.Default.Timer,
                 Color(0xFF00C472),
                 showCallTimer,
-            ) { showCallTimer = it }
-            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            ) { v ->
+                showCallTimer = v
+                PersonalizationStore.update(context) { s -> s.copy(showInCallTimer = v) }
+                onShowInCallTimerChanged(v)
+            }
+            HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
             SettingsToggleRow(
                 stringResource(R.string.perso_call_recording),
                 stringResource(R.string.perso_call_recording_sub),
@@ -381,17 +681,24 @@ private fun PersonalizationBody(onDarkThemePreference: (Boolean) -> Unit = {}) {
             Text(
                 stringResource(R.string.perso_incoming_full_screen_note),
                 style = MaterialTheme.typography.bodySmall,
-                color = PhoniqTextSecondaryMock,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
             )
-            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
             SettingsToggleRow(
                 stringResource(R.string.perso_verified_badge),
                 stringResource(R.string.perso_verified_badge_sub),
                 Icons.Default.VerifiedUser,
                 Color(0xFFFF9F43),
                 verifiedBadge,
-            ) { verifiedBadge = it }
+            ) { v ->
+                verifiedBadge = v
+                PersonalizationStore.update(context) { s -> s.copy(verifiedCallerBadge = v) }
+                onVerifiedCallerBadgeChanged(v)
+            }
         }
 
         SettingsSectionLabel(stringResource(R.string.perso_messages_section))
@@ -402,23 +709,41 @@ private fun PersonalizationBody(onDarkThemePreference: (Boolean) -> Unit = {}) {
                 Icons.Default.Key,
                 Color(0xFFA855F7),
                 otpAutoCopy,
-            ) { otpAutoCopy = it }
-            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            ) { v ->
+                otpAutoCopy = v
+                PersonalizationStore.update(context) { s -> s.copy(otpAutoCopy = v) }
+                onOtpAutoCopyChanged(v)
+            }
+            HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
             SettingsToggleRow(
                 stringResource(R.string.perso_rcs),
                 stringResource(R.string.perso_rcs_sub),
                 Icons.AutoMirrored.Filled.Chat,
                 Color(0xFF00A884),
                 rcsEnabled,
-            ) { rcsEnabled = it }
-            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            ) { v ->
+                rcsEnabled = v
+                PersonalizationStore.update(context) { s -> s.copy(rcsUiEnabled = v) }
+                onRcsUiChanged(v)
+            }
+            HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
             SettingsToggleRow(
                 stringResource(R.string.personalization_dense_threads),
                 stringResource(R.string.personalization_dense_threads_sub),
                 Icons.Default.ViewCompact,
                 Color(0xFF4499FF),
                 denseThreads,
-            ) { denseThreads = it }
+            ) { v ->
+                denseThreads = v
+                PersonalizationStore.update(context) { s -> s.copy(denseThreads = v) }
+                onDenseThreadsChanged(v)
+            }
         }
 
         SettingsSectionLabel(stringResource(R.string.perso_money_section))
@@ -429,7 +754,11 @@ private fun PersonalizationBody(onDarkThemePreference: (Boolean) -> Unit = {}) {
                 Icons.Default.Notifications,
                 Color(0xFFE74C3C),
                 overBudgetAlert,
-            ) { overBudgetAlert = it }
+            ) { v ->
+                overBudgetAlert = v
+                PersonalizationStore.update(context) { s -> s.copy(overBudgetAlerts = v) }
+                onOverBudgetAlertsChanged(v)
+            }
         }
 
         SettingsSectionLabel(stringResource(R.string.perso_privacy_section))
@@ -438,31 +767,49 @@ private fun PersonalizationBody(onDarkThemePreference: (Boolean) -> Unit = {}) {
                 stringResource(R.string.perso_app_lock),
                 stringResource(R.string.perso_app_lock_sub),
                 Icons.Default.Lock,
-                PhoniqAccent,
+                MaterialTheme.colorScheme.primary,
                 appLock,
-            ) { appLock = it }
-            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            ) { v ->
+                appLock = v
+                PersonalizationStore.update(context) { s -> s.copy(appLockEnabled = v) }
+                onAppLockChanged(v)
+            }
+            HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
             SettingsToggleRow(
                 stringResource(R.string.perso_blur_amounts),
                 stringResource(R.string.perso_blur_amounts_sub),
                 Icons.Default.VisibilityOff,
                 Color(0xFFFF6B9D),
                 blurAmounts,
-            ) { blurAmounts = it }
-            HorizontalDivider(color = PhoniqBorderSoft, thickness = 1.dp)
+            ) { v ->
+                blurAmounts = v
+                PersonalizationStore.update(context) { s -> s.copy(blurMoneyAmounts = v) }
+                onBlurMoneyAmountsChanged(v)
+            }
+            HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            thickness = 1.dp,
+        )
             SettingsToggleRow(
                 stringResource(R.string.perso_stealth_mode),
                 stringResource(R.string.perso_stealth_mode_sub),
                 Icons.Default.Security,
                 Color(0xFFE74C3C),
                 stealthMode,
-            ) { stealthMode = it }
+            ) { v ->
+                stealthMode = v
+                PersonalizationStore.update(context) { s -> s.copy(stealthMode = v) }
+                onStealthModeChanged(v)
+            }
         }
 
-        Text(
-            stringResource(R.string.personalization_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = PhoniqTextSecondaryMock,
+            Text(
+                stringResource(R.string.personalization_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         )
     }
@@ -514,10 +861,10 @@ private fun DataDeviceBody(
 
     SettingsSectionLabel(stringResource(R.string.settings_section_mms), topPaddingExtra = 4.dp)
     SettingsCard {
-        Text(
-            stringResource(R.string.settings_mms_scope_body),
-            style = MaterialTheme.typography.bodySmall,
-            color = PhoniqTextSecondaryMock,
+            Text(
+                stringResource(R.string.settings_mms_scope_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
         )
     }
@@ -555,13 +902,13 @@ private fun DataDeviceBody(
                 "PhonIQ v1.0.0-alpha",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = PhoniqOnBackground,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(R.string.settings_about_offline_note),
                 style = MaterialTheme.typography.bodySmall,
-                color = PhoniqTextSecondaryMock,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -580,15 +927,18 @@ private fun SettingsSectionLabel(text: String, topPaddingExtra: Dp = 0.dp) {
                 end = 16.dp,
                 bottom = 6.dp,
             ),
-        color = PhoniqAccent,
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.5.sp,
+        style =
+            MaterialTheme.typography.labelSmall.copy(
+                letterSpacing = 1.5.sp,
+                fontWeight = FontWeight.Bold,
+            ),
+        color = MaterialTheme.colorScheme.primary,
     )
 }
 
 @Composable
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    val scheme = MaterialTheme.colorScheme
     Surface(
         modifier =
             Modifier
@@ -596,8 +946,8 @@ private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 8.dp),
         shape = RoundedCornerShape(16.dp),
-        color = PhoniqSurface,
-        border = BorderStroke(1.dp, PhoniqBorder),
+        color = scheme.surface,
+        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.6f)),
     ) {
         Column(content = content)
     }
@@ -644,18 +994,22 @@ private fun SettingsNavRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     label,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = PhoniqOnBackground,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     sub,
-                    fontSize = 11.sp,
-                    color = PhoniqTextSecondaryMock,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 1.dp),
                 )
             }
-            Text("›", fontSize = 14.sp, color = ChevronMuted)
+            Text(
+                "›",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+            )
         }
     }
 }
@@ -699,14 +1053,14 @@ private fun SettingsToggleRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 label,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                color = PhoniqOnBackground,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 sub,
-                fontSize = 11.sp,
-                color = PhoniqTextSecondaryMock,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 1.dp),
             )
         }
@@ -719,13 +1073,15 @@ private fun PhoniqAccentSwitch(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    val scheme = MaterialTheme.colorScheme
     val thumbOffset by animateDpAsState(if (checked) 18.dp else 0.dp, label = "toggleThumb")
+    val trackOff = scheme.surfaceVariant.copy(alpha = 0.55f)
     Box(
         modifier =
             Modifier
                 .size(width = 42.dp, height = 24.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (checked) PhoniqAccent else ToggleTrackOff)
+                .background(if (checked) scheme.primary else trackOff)
                 .clickable { onCheckedChange(!checked) },
     ) {
         Box(
@@ -750,12 +1106,12 @@ private data class ThemeTileSpec(
     val labelFg: Color,
 )
 
-private val themeTileSpecs: List<ThemeTileSpec> =
+private fun themeTileSpecs(primary: Color): List<ThemeTileSpec> =
     listOf(
         ThemeTileSpec(
             "AMOLED",
             Color(0xFF000000),
-            PhoniqAccent,
+            primary,
             Color(0xFF222222),
             Color(0xFF1A1A2A),
             Color(0xFF000000),
@@ -764,7 +1120,7 @@ private val themeTileSpecs: List<ThemeTileSpec> =
         ThemeTileSpec(
             "Deep Dark",
             Color(0xFF0A0A0F),
-            PhoniqAccent,
+            primary,
             Color(0xFF252535),
             Color(0xFF1E1E30),
             Color(0xFF0A0A0F),
@@ -798,9 +1154,171 @@ private val themeTileSpecs: List<ThemeTileSpec> =
             Color(0xFF888888),
         ),
         ThemeTileSpec(
+            "Samsung",
+            Color(0xFF101218),
+            Color(0xFF3D9BFF),
+            Color(0xFF252A34),
+            Color(0xFF1E232B),
+            Color(0xFF101218),
+            Color(0xFFBBBBCC),
+        ),
+        ThemeTileSpec(
+            "Daily Dial",
+            Color(0xFF0A0812),
+            Color(0xFF8B5CF6),
+            Color(0xFF1E1830),
+            Color(0xFF251A3D),
+            Color(0xFF0A0812),
+            Color(0xFFAAA0CC),
+        ),
+        ThemeTileSpec(
+            "Neo Mirror",
+            Color(0xFF020306),
+            Color(0xFF00E8F9),
+            Color(0xFF0C141C),
+            Color(0xFF101820),
+            Color(0xFF020306),
+            Color(0xFF8EC4CC),
+        ),
+        ThemeTileSpec(
+            "Dialer 360",
+            Color(0xFF0C1629),
+            Color(0xFF3B82F6),
+            Color(0xFF1A2840),
+            Color(0xFF243652),
+            Color(0xFF0C1629),
+            Color(0xFFB8C5DC),
+        ),
+        ThemeTileSpec(
+            "Nothing Dial",
+            Color(0xFF000000),
+            Color(0xFFFF3B30),
+            Color(0xFF1C1C1C),
+            Color(0xFF252525),
+            Color(0xFF000000),
+            Color(0xFFB0B0B0),
+        ),
+        ThemeTileSpec(
+            "Glass Dial",
+            Color(0xFF2D3142),
+            Color(0xFF8AB4F8),
+            Color(0xFF3D4358),
+            Color(0xFF4A5168),
+            Color(0xFF2D3142),
+            Color(0xFFD0D8F0),
+        ),
+        ThemeTileSpec(
+            "AI Translator",
+            Color(0xFF1A1030),
+            Color(0xFF2DD4BF),
+            Color(0xFF2A2148),
+            Color(0xFF35285C),
+            Color(0xFF1A1030),
+            Color(0xFFC4B8E8),
+        ),
+        ThemeTileSpec(
+            "SaaS Widget",
+            Color(0xFF1F2937),
+            Color(0xFF60A5FA),
+            Color(0xFF374151),
+            Color(0xFF4B5563),
+            Color(0xFF1F2937),
+            Color(0xFFCBD5E1),
+        ),
+        ThemeTileSpec(
+            "Plum Inbox",
+            Color(0xFF231F2E),
+            Color(0xFFF472B6),
+            Color(0xFF3D3448),
+            Color(0xFF4A4058),
+            Color(0xFF231F2E),
+            Color(0xFFE9D5FF),
+        ),
+        ThemeTileSpec(
+            "Carbon Thread",
+            Color(0xFF0D1117),
+            Color(0xFF39D98A),
+            Color(0xFF21262D),
+            Color(0xFF30363D),
+            Color(0xFF0D1117),
+            Color(0xFF8B949E),
+        ),
+        ThemeTileSpec(
+            "Blue Thread",
+            Color(0xFF1A1D26),
+            Color(0xFF5BA4F8),
+            Color(0xFF323746),
+            Color(0xFF3D4352),
+            Color(0xFF1A1D26),
+            Color(0xFF9BA4B5),
+        ),
+        ThemeTileSpec(
+            "Coral Dusk",
+            Color(0xFF151018),
+            Color(0xFFFF8A65),
+            Color(0xFF353040),
+            Color(0xFF45405A),
+            Color(0xFF151018),
+            Color(0xFFE8D5F0),
+        ),
+        ThemeTileSpec(
+            "Teal Tide",
+            Color(0xFF0C1418),
+            Color(0xFF2DD4BF),
+            Color(0xFF1A3040),
+            Color(0xFF244854),
+            Color(0xFF0C1418),
+            Color(0xFFB2DFDB),
+        ),
+        ThemeTileSpec(
+            "Indigo Line",
+            Color(0xFF13141C),
+            Color(0xFF818CF8),
+            Color(0xFF252440),
+            Color(0xFF2E2F48),
+            Color(0xFF13141C),
+            Color(0xFFC7D2FE),
+        ),
+        ThemeTileSpec(
+            "Sky Panel",
+            Color(0xFF141416),
+            Color(0xFF38BDF8),
+            Color(0xFF2A2A30),
+            Color(0xFF35353D),
+            Color(0xFF141416),
+            Color(0xFF94A3B8),
+        ),
+        ThemeTileSpec(
+            "Violet Studio",
+            Color(0xFF1A1025),
+            Color(0xFFE879F9),
+            Color(0xFF352848),
+            Color(0xFF403058),
+            Color(0xFF1A1025),
+            Color(0xFFF5D0FE),
+        ),
+        ThemeTileSpec(
+            "Phone Style",
+            Color(0xFF000000),
+            Color(0xFF0A84FF),
+            Color(0xFF1C1C1E),
+            Color(0xFF2C2C2E),
+            Color(0xFF000000),
+            Color(0xFFEBEBF5),
+        ),
+        ThemeTileSpec(
+            "Material 3",
+            Color(0xFF10131A),
+            Color(0xFFD0BCFF),
+            Color(0xFF1B1F2A),
+            Color(0xFF2A3142),
+            Color(0xFF10131A),
+            Color(0xFFE8E1F5),
+        ),
+        ThemeTileSpec(
             "Light",
             Color(0xFFF5F5FA),
-            PhoniqAccent,
+            primary,
             Color(0xFFDDDDDD),
             Color(0xFFE8E8F0),
             Color(0xFFF5F5FA),
@@ -822,7 +1340,8 @@ private fun ThemeTilesRow(
                 .padding(bottom = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        for (spec in themeTileSpecs) {
+        val specs = themeTileSpecs(MaterialTheme.colorScheme.primary)
+        for (spec in specs) {
             ThemeTileCard(spec = spec, selected = spec.nameKey == selected, onClick = { onSelect(spec.nameKey) })
         }
     }
@@ -834,6 +1353,7 @@ private fun ThemeTileCard(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val scheme = MaterialTheme.colorScheme
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
@@ -841,7 +1361,12 @@ private fun ThemeTileCard(
         border =
             BorderStroke(
                 width = if (selected) 2.dp else 1.dp,
-                color = if (selected) PhoniqAccent else PhoniqBorderSoft.copy(alpha = 0.85f),
+                color =
+                    if (selected) {
+                        scheme.primary
+                    } else {
+                        scheme.outlineVariant.copy(alpha = 0.85f)
+                    },
             ),
     ) {
         Column(
@@ -899,7 +1424,69 @@ private fun ThemeTileCard(
 }
 
 @Composable
-private fun ChipRow(options: List<String>, selected: String, onSelect: (String) -> Unit) {
+private fun ChipRow(
+    options: List<String>,
+    selected: String,
+    enabled: Boolean = true,
+    onSelect: (String) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { opt ->
+            val isSelected = opt == selected
+            Surface(
+                onClick = { if (enabled) onSelect(opt) },
+                enabled = enabled,
+                shape = RoundedCornerShape(20.dp),
+                color =
+                    when {
+                        !enabled -> scheme.surfaceVariant.copy(alpha = 0.35f)
+                        isSelected -> scheme.primary.copy(alpha = 0.12f)
+                        else -> Color.Transparent
+                    },
+                modifier =
+                    Modifier.border(
+                        width = 1.5.dp,
+                        color =
+                            when {
+                                !enabled -> scheme.outlineVariant.copy(alpha = 0.35f)
+                                isSelected -> scheme.primary
+                                else -> scheme.outlineVariant.copy(alpha = 0.85f)
+                            },
+                        shape = RoundedCornerShape(20.dp),
+                    ),
+            ) {
+                Text(
+                    opt,
+                    style = MaterialTheme.typography.labelMedium,
+                    color =
+                        when {
+                            !enabled -> scheme.onSurface.copy(alpha = 0.38f)
+                            isSelected -> scheme.primary
+                            else -> scheme.onSurfaceVariant
+                        },
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FontFamilyChipRow(
+    options: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
     Row(
         modifier =
             Modifier
@@ -914,18 +1501,79 @@ private fun ChipRow(options: List<String>, selected: String, onSelect: (String) 
             Surface(
                 onClick = { onSelect(opt) },
                 shape = RoundedCornerShape(20.dp),
-                color = if (isSelected) PhoniqAccent.copy(alpha = 0.12f) else Color.Transparent,
+                color = if (isSelected) scheme.primary.copy(alpha = 0.12f) else Color.Transparent,
                 modifier =
                     Modifier.border(
                         width = 1.5.dp,
-                        color = if (isSelected) PhoniqAccent else PhoniqBorderSoft.copy(alpha = 0.85f),
+                        color =
+                            if (isSelected) {
+                                scheme.primary
+                            } else {
+                                scheme.outlineVariant.copy(alpha = 0.85f)
+                            },
                         shape = RoundedCornerShape(20.dp),
                     ),
             ) {
                 Text(
                     opt,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isSelected) PhoniqAccent else PhoniqOnSurfaceMuted,
+                    style =
+                        MaterialTheme.typography.labelMedium.copy(
+                            fontFamily = fontFamilyForPersonalization(opt),
+                        ),
+                    color = if (isSelected) scheme.primary else scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FontSizeTierChipRow(
+    options: List<String>,
+    selected: String,
+    selectedFontKey: String,
+    onSelect: (String) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val fontFamily = fontFamilyForPersonalization(selectedFontKey)
+    val baseSp = MaterialTheme.typography.labelMedium.fontSize.value
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { opt ->
+            val isSelected = opt == selected
+            val mul = fontTierMultiplier(opt)
+            Surface(
+                onClick = { onSelect(opt) },
+                shape = RoundedCornerShape(20.dp),
+                color = if (isSelected) scheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+                modifier =
+                    Modifier.border(
+                        width = 1.5.dp,
+                        color =
+                            if (isSelected) {
+                                scheme.primary
+                            } else {
+                                scheme.outlineVariant.copy(alpha = 0.85f)
+                            },
+                        shape = RoundedCornerShape(20.dp),
+                    ),
+            ) {
+                Text(
+                    opt,
+                    style =
+                        MaterialTheme.typography.labelMedium.copy(
+                            fontFamily = fontFamily,
+                            fontSize = (baseSp * mul).sp,
+                        ),
+                    color = if (isSelected) scheme.primary else scheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
                 )
             }
@@ -935,11 +1583,12 @@ private fun ChipRow(options: List<String>, selected: String, onSelect: (String) 
 
 @Composable
 private fun AccentSwatchRow(colors: List<Color>, selected: Int, onSelect: (Int) -> Unit) {
+    val ring = MaterialTheme.colorScheme.primary
     Row(
         modifier =
             Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 14.dp, vertical = 10.dp)
                 .padding(bottom = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -950,16 +1599,16 @@ private fun AccentSwatchRow(colors: List<Color>, selected: Int, onSelect: (Int) 
                 modifier =
                     Modifier
                         .size(30.dp)
-                        .clip(CircleShape)
-                        .background(color)
-                        .then(
+                    .clip(CircleShape)
+                    .background(color)
+                    .then(
                             if (selected == index) {
-                                Modifier.border(2.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                Modifier.border(2.dp, ring, CircleShape)
                             } else {
                                 Modifier
                             },
-                        )
-                        .clickable { onSelect(index) },
+                    )
+                    .clickable { onSelect(index) },
                 contentAlignment = Alignment.Center,
             ) {
                 if (selected == index) {
@@ -981,7 +1630,7 @@ private fun AccentSwatchRow(colors: List<Color>, selected: Int, onSelect: (Int) 
 private fun SettingsDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(horizontal = 14.dp),
-        color = PhoniqBorder.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
         thickness = 0.5.dp,
     )
 }
@@ -996,8 +1645,18 @@ private fun SettingsToggleItem(label: String, sub: String, checked: Boolean, onC
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = PhoniqOnBackground)
-            Text(sub, fontSize = 11.sp, color = PhoniqTextSecondaryMock, modifier = Modifier.padding(top = 1.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                sub,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 1.dp),
+            )
         }
         PhoniqAccentSwitch(checked, onChange)
     }
@@ -1012,10 +1671,24 @@ private fun SettingsActionItem(label: String, sub: String, onClick: () -> Unit =
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = PhoniqOnBackground)
-                Text(sub, fontSize = 11.sp, color = PhoniqTextSecondaryMock, modifier = Modifier.padding(top = 1.dp))
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    sub,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 1.dp),
+                )
             }
-            Text("›", fontSize = 14.sp, color = ChevronMuted)
+            Text(
+                "›",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+            )
         }
     }
 }

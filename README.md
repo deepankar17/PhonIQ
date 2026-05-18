@@ -13,7 +13,9 @@ Offline-first Android app: Phone, Messages, Money — specs and HTML mockup live
 - **Min OS:** Android **15** (API **35**); validated on **15 & 16**
 - **Stack:** Kotlin, Jetpack Compose, Room — see [`android/README.md`](android/README.md)
 - Product + architecture: [`docs/PROJECT.md`](docs/PROJECT.md)
+- **Brand / launcher / Play graphics:** [`docs/BRAND_ICON_ASSETS.md`](docs/BRAND_ICON_ASSETS.md)
 - Personalization UX: [`docs/PERSONALIZATION.md`](docs/PERSONALIZATION.md)
+- **Public website:** [`hosting/README.md`](hosting/README.md) — deploy to Firebase Hosting (`*.web.app`)
 - Interactive mockup: [`design/phoniq-mockup-v1.html`](design/phoniq-mockup-v1.html)
 
 **Privacy:** no ads, no telemetry, **offline-first** core IQ. `INTERNET` may appear in the manifest for optional future/manual flows only (Drive and similar)—**not** for background sync, ads, telemetry, or cloud caller reputation.

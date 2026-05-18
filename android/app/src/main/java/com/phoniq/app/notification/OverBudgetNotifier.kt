@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import com.phoniq.app.R
+import com.phoniq.app.util.PersonalizationStore
 
 private const val CHANNEL_ID = "phoniq_budget"
 
@@ -16,12 +17,13 @@ private const val CHANNEL_ID = "phoniq_budget"
 object OverBudgetNotifier {
 
     fun notify(context: Context, category: String, spent: Double, limit: Double) {
+        if (!PersonalizationStore.load(context.applicationContext).overBudgetAlerts) return
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         ensureChannel(nm)
 
         val overage = spent - limit
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_phoniq_launcher)
+            .setSmallIcon(R.mipmap.ic_phoniq_launcher)
             .setContentTitle("⚠️ Over budget: $category")
             .setContentText("Spent ₹${spent.toInt()} · limit ₹${limit.toInt()} · over by ₹${overage.toInt()}")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

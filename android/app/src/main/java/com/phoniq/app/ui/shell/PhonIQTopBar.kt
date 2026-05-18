@@ -131,25 +131,33 @@ fun PhonIQTopBar(
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
+            val phoneTab = currentTab == MainTabRoute.Phone
             Surface(
                 onClick = onSearchClick,
                 modifier =
                     Modifier
                         .weight(1f)
-                        .height(36.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        .height(if (phoneTab) 38.dp else 36.dp),
+                shape = if (phoneTab) RoundedCornerShape(22.dp) else RoundedCornerShape(12.dp),
+                color =
+                    MaterialTheme.colorScheme.surfaceVariant.copy(
+                        alpha = if (phoneTab) 0.58f else 0.45f,
+                    ),
                 border =
                     BorderStroke(
                         1.dp,
-                        MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                        MaterialTheme.colorScheme.outline.copy(
+                            alpha = if (phoneTab) 0.26f else 0.35f,
+                        ),
                     ),
+                tonalElevation = if (phoneTab) 1.dp else 0.dp,
+                shadowElevation = if (phoneTab) 2.dp else 0.dp,
             ) {
                 Row(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = if (phoneTab) 14.dp else 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -252,6 +260,13 @@ fun PhonIQTopBar(
                                 onClick = {
                                     menuOpen = false
                                     onMenuAction(ShellMenuAction.MessagesOtpCenter)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_messages_reminders)) },
+                                onClick = {
+                                    menuOpen = false
+                                    onMenuAction(ShellMenuAction.MessagesReminders)
                                 },
                             )
                         }

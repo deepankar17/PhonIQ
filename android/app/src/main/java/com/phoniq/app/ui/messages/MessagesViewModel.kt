@@ -1,21 +1,27 @@
 package com.phoniq.app.ui.messages
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.phoniq.app.data.db.entity.SmsMessageEntity
 import com.phoniq.app.data.mapper.toMessageThreads
 import com.phoniq.app.data.model.MessageThread
+import com.phoniq.app.data.repository.CallLogRepository
 import com.phoniq.app.data.repository.SmsRepository
+import com.phoniq.app.util.dialableForBlockedNumberContract
+import com.phoniq.app.util.smsSpamPeerKey
+import com.phoniq.app.util.tryAddToSystemBlockedNumbers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -24,6 +30,8 @@ import kotlinx.coroutines.launch
 
 class MessagesViewModel(
     private val smsRepository: SmsRepository,
+    private val callLogRepository: CallLogRepository,
+    private val app: Application,
 ) : ViewModel() {
 
     val unreadCount: StateFlow<Int> = smsRepository.unreadCount
@@ -40,9 +48,18 @@ class MessagesViewModel(
      * True query-level paging would cap memory for very large inboxes (Room + Paging or LIMIT queries).
      */
     val messageThreads: StateFlow<List<MessageThread>> =
-        (allMessages as Flow<List<SmsMessageEntity>>)
+        combine(
+            allMessages as Flow<List<SmsMessageEntity>>,
+            callLogRepository.spamNumberKeys,
+        ) { messages, spamKeys ->
+            val threads = messages.toMessageThreads()
+            threads.filter { thread ->
+                val raw = thread.peerAddress?.trim()?.takeIf { it.isNotEmpty() } ?: thread.title
+                val key = smsSpamPeerKey(raw)
+                key.isEmpty() || key !in spamKeys
+            }
+        }
             .distinctUntilChanged()
-            .map { it.toMessageThreads() }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -92,6 +109,60 @@ class MessagesViewModel(
         }
     }
 
+    /**
+     * Send an outgoing SMS to [destination] and refresh the local SMS cache so the new bubble
+     * appears in the thread. Returns the [SmsRepository.SendResult] for UI to surface
+     * snackbars / errors.
+     */
+    suspend     fun sendSms(destination: String, body: String, threadIdHint: String? = null): SmsRepository.SendResult {
+        val result = smsRepository.sendSms(destination, body, threadIdHint)
+        if (result.success) {
+            refreshFromDevice()
+        }
+        return result
+    }
+
+    fun markThreadsReadBulk(threadIds: Collection<String>) {
+        viewModelScope.launch { smsRepository.markThreadsRead(threadIds) }
+    }
+
+    fun setThreadsArchivedBulk(threadIds: Collection<String>, archived: Boolean) {
+        viewModelScope.launch { smsRepository.setThreadsArchived(threadIds, archived) }
+    }
+
+    fun deleteThreadsBulk(threadIds: Collection<String>) {
+        viewModelScope.launch {
+            smsRepository.deleteThreadsPermanently(threadIds)
+        }
+    }
+
+    /**
+     * Adds the peer to the on-device [spam_numbers] list (hides thread) and attempts
+     * [android.provider.BlockedNumberContract] when the peer is dialable.
+     *
+     * @param userMessage "(reason)" string resource name values are filled by the caller from UI layer
+     */
+    fun blockSmsSender(rawPeer: String, onResult: (BlockSmsSenderResult) -> Unit) {
+        viewModelScope.launch {
+            val peer = rawPeer.trim()
+            if (peer.isEmpty()) {
+                onResult(BlockSmsSenderResult.emptyPeer())
+                return@launch
+            }
+            callLogRepository.markSpam(peer)
+            val dialable = dialableForBlockedNumberContract(peer)
+            val systemOk =
+                dialable != null && app.applicationContext.tryAddToSystemBlockedNumbers(dialable)
+            onResult(
+                BlockSmsSenderResult(
+                    addedLocalBlock = true,
+                    attemptedSystemBlock = dialable != null,
+                    systemBlockSucceeded = systemOk,
+                ),
+            )
+        }
+    }
+
     fun threadMessages(threadId: String): Flow<List<SmsMessageEntity>> =
         smsRepository.thread(threadId)
 
@@ -110,9 +181,28 @@ class MessagesViewModel(
         const val SMS_THREAD_PAGE_SIZE = 20
     }
 
-    class Factory(private val repo: SmsRepository) : ViewModelProvider.Factory {
+    data class BlockSmsSenderResult(
+        val addedLocalBlock: Boolean,
+        val attemptedSystemBlock: Boolean,
+        val systemBlockSucceeded: Boolean,
+    ) {
+        companion object {
+            fun emptyPeer() =
+                BlockSmsSenderResult(
+                    addedLocalBlock = false,
+                    attemptedSystemBlock = false,
+                    systemBlockSucceeded = false,
+                )
+        }
+    }
+
+    class Factory(
+        private val repo: SmsRepository,
+        private val callLogRepository: CallLogRepository,
+        private val app: Application,
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            MessagesViewModel(repo) as T
+            MessagesViewModel(repo, callLogRepository, app) as T
     }
 }

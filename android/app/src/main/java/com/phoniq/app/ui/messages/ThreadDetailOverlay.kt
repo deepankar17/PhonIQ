@@ -2,6 +2,7 @@ package com.phoniq.app.ui.messages
 
 import android.content.ClipData
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,10 +13,22 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +40,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -55,6 +69,7 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.DropdownMenu
@@ -112,12 +127,16 @@ import com.phoniq.app.data.mapper.toKeyedConversationBubbles
 import com.phoniq.app.data.model.ConversationBubble
 import com.phoniq.app.data.model.MessageTickVisual
 import com.phoniq.app.data.model.MessageThread
+import com.phoniq.app.ui.money.TransactionTxnBubbleCard
+import com.phoniq.app.ui.theme.LocalDenseThreads
+import com.phoniq.app.ui.theme.LocalRcsBadgesEnabled
 import com.phoniq.app.ui.theme.PhoniqAccent
 import com.phoniq.app.ui.components.AvatarInitialsText
+import com.phoniq.app.ui.components.contactAvatarClip
 import com.phoniq.app.ui.theme.PhoniqSecondary
 import com.phoniq.app.util.isShortCodeThreadPeer
 import com.phoniq.app.util.sanitizeForTelDial
-import com.phoniq.app.util.startDialer
+import com.phoniq.app.util.placeOrDial
 import com.phoniq.app.util.startSmsCompose
 import com.phoniq.app.util.tryOpenWhatsAppForNumber
 import kotlinx.coroutines.delay
@@ -249,6 +268,7 @@ fun ThreadDetailOverlay(
     var messages by remember(thread.id) { mutableStateOf<List<SmsMessageEntity>>(emptyList()) }
     var mayHaveOlder by remember(thread.id) { mutableStateOf(true) }
     var loadingOlder by remember(thread.id) { mutableStateOf(false) }
+    var linkPreviewUrl by remember(thread.id) { mutableStateOf<String?>(null) }
     var didInitialScroll by remember(thread.id) { mutableStateOf(false) }
 
     LaunchedEffect(threadKey) {
@@ -296,11 +316,11 @@ fun ThreadDetailOverlay(
                         ),
                         KeyedConversationBubble(
                             "preview-snippet",
-                            ConversationBubble.TextMessage(
+                    ConversationBubble.TextMessage(
                                 body = thread.snippet.ifBlank { context.getString(R.string.thread_preview_only) },
-                                time = thread.timeLabel,
-                                outgoing = false,
-                                ticks = MessageTickVisual.None,
+                        time = thread.timeLabel,
+                        outgoing = false,
+                        ticks = MessageTickVisual.None,
                             ),
                         ),
                     )
@@ -308,6 +328,8 @@ fun ThreadDetailOverlay(
         }
     val plainSmsHint = stringResource(R.string.thread_sms_plain_default)
     val blockShortCodeReply = remember(thread.id, thread.peerAddress) { thread.isShortCodeThreadPeer() }
+    val denseThreads = LocalDenseThreads.current
+    val rcsBadgesOn = LocalRcsBadgesEnabled.current
     val listState = remember(thread.id) { LazyListState() }
     val listCoroutineScope = rememberCoroutineScope()
     val loadOlderThreshold = 2
@@ -391,7 +413,7 @@ fun ThreadDetailOverlay(
                         loadingOlder = false
                     }
                 }
-            }
+        }
     }
 
     Dialog(
@@ -409,7 +431,9 @@ fun ThreadDetailOverlay(
             Column(Modifier.fillMaxSize()) {
                 ThreadChatHeader(
                     thread = thread,
+                    messagesViewModel = messagesViewModel,
                     onBack = onDismiss,
+                    onThreadBlocked = onDismiss,
                     onVideo = {
                         val raw =
                             thread.dialablePeer()
@@ -420,13 +444,13 @@ fun ThreadDetailOverlay(
                     },
                     onVoice = {
                         val dest = thread.dialablePeer()
-                        if (dest == null || !context.startDialer(dest)) {
+                        if (dest == null || !context.placeOrDial(dest, null)) {
                             onUserMessage(context.getString(R.string.toast_dial_failed))
                         }
                     },
                     onUserMessage = onUserMessage,
                 )
-                if (thread.showRcsBadge) {
+                if (thread.showRcsBadge && rcsBadgesOn) {
                     ThreadRcsFeatureBar()
                     ThreadE2EBar()
                 } else {
@@ -465,7 +489,13 @@ fun ThreadDetailOverlay(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                         verticalArrangement =
-                            Arrangement.spacedBy(if (blockShortCodeReply) 8.dp else 2.dp),
+                            Arrangement.spacedBy(
+                                when {
+                                    blockShortCodeReply -> 8.dp
+                                    denseThreads -> 2.dp
+                                    else -> 6.dp
+                                },
+                            ),
                     ) {
                     items(
                         items = keyedBubbles,
@@ -473,6 +503,7 @@ fun ThreadDetailOverlay(
                     ) { keyed ->
                         ConversationBubbleBlock(
                             bubble = keyed.bubble,
+                            bubbleKey = keyed.stableKey,
                             shortCodeFeedLayout = blockShortCodeReply,
                             onCopyOtp = { code ->
                                 Toast.makeText(
@@ -481,25 +512,22 @@ fun ThreadDetailOverlay(
                                     Toast.LENGTH_SHORT,
                                 ).show()
                             },
-                            onViewInMoney = {
-                                onUserMessage(context.getString(R.string.toast_view_in_money))
-                                onDismiss()
-                                onNavigateToMoney()
+                            onSmsLinkOpen = { url ->
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                    )
+                                }.onFailure {
+                                    onUserMessage(context.getString(R.string.sms_link_open_failed))
+                                }
                             },
+                            onSmsLinkPreview = { linkPreviewUrl = it },
                         )
                     }
                     if (messages.isEmpty() && (thread.lastCallSummary != null || thread.localNote != null)) {
                         item {
                             ThreadFusionExtras(thread)
                         }
-                    }
-                    item {
-                        Text(
-                            text = stringResource(R.string.thread_full_conversation_wire),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = WaSubtleText,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-                        )
                     }
                 }
                     if (showJumpToBottomFab) {
@@ -529,13 +557,56 @@ fun ThreadDetailOverlay(
                     if (blockShortCodeReply) {
                         ThreadShortCodeNoReplyBar()
                     } else {
+                        val composerScope = rememberCoroutineScope()
+                        var composerText by remember(thread.id) { mutableStateOf(TextFieldValue("")) }
+                        var sending by remember(thread.id) { mutableStateOf(false) }
                         ThreadComposerBar(
+                            value = composerText,
+                            onValueChange = { composerText = it },
+                            sending = sending,
                             onEmoji = { emojiPickerOpen = true },
                             onAttach = { attachPicker.launch("*/*") },
                             onSend = {
+                                val body = composerText.text.trim()
+                                if (body.isEmpty()) return@ThreadComposerBar
                                 val dest = thread.smsComposeTarget()
-                                if (dest == null || !context.startSmsCompose(dest)) {
-                                    onUserMessage(context.getString(R.string.snackbar_no_sms_app))
+                                if (dest.isNullOrEmpty()) {
+                                    onUserMessage(context.getString(R.string.thread_send_no_destination))
+                                    return@ThreadComposerBar
+                                }
+                                val hasSend =
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.SEND_SMS,
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                if (!hasSend) {
+                                    onUserMessage(context.getString(R.string.thread_send_no_permission))
+                                    if (!context.startSmsCompose(dest, body = body)) {
+                                        onUserMessage(context.getString(R.string.snackbar_no_sms_app))
+                                    }
+                                    return@ThreadComposerBar
+                                }
+                                sending = true
+                                composerScope.launch {
+                                    val result =
+                                        messagesViewModel.sendSms(dest, body, threadIdHint = threadKey)
+                                    sending = false
+                                    if (result.success) {
+                                        composerText = TextFieldValue("")
+                                        if (result.insertedRowId <= 0L) {
+                                            onUserMessage(
+                                                context.getString(R.string.thread_send_not_default_hint),
+                                            )
+                                        }
+                                        messages = messagesViewModel.loadThreadLatestPage(threadKey)
+                                    } else {
+                                        onUserMessage(
+                                            context.getString(
+                                                R.string.thread_send_failed,
+                                                result.errorMessage ?: "unknown",
+                                            ),
+                                        )
+                                    }
                                 }
                             },
                         )
@@ -573,6 +644,13 @@ fun ThreadDetailOverlay(
                     Text(stringResource(R.string.action_close))
                 }
             },
+        )
+    }
+
+    linkPreviewUrl?.let { preview ->
+        SmsLinkPreviewBottomSheet(
+            url = preview,
+            onDismissRequest = { linkPreviewUrl = null },
         )
     }
 }
@@ -690,13 +768,16 @@ private fun ThreadFilterChip(
 @Composable
 private fun ThreadChatHeader(
     thread: MessageThread,
+    messagesViewModel: MessagesViewModel,
     onBack: () -> Unit,
     onVideo: () -> Unit,
     onVoice: () -> Unit,
     onUserMessage: (String) -> Unit,
+    onThreadBlocked: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val rcsBadgesOn = LocalRcsBadgesEnabled.current
     val clipboard = LocalClipboard.current
     val menuScope = rememberCoroutineScope()
     Row(
@@ -729,7 +810,7 @@ private fun ThreadChatHeader(
             modifier =
                 Modifier
                     .size(52.dp)
-                    .clip(CircleShape)
+                    .contactAvatarClip(52.dp)
                     .background(WaAvatarSurface),
             contentAlignment = Alignment.Center,
         ) {
@@ -767,14 +848,14 @@ private fun ThreadChatHeader(
                 }
                 Text(
                     text =
-                        if (thread.showRcsBadge) {
+                        if (thread.showRcsBadge && rcsBadgesOn) {
                             stringResource(R.string.thread_rcs_active_short)
                         } else {
                             "SMS"
                         },
                     style = MaterialTheme.typography.labelSmall,
                     color =
-                        if (thread.showRcsBadge) {
+                        if (thread.showRcsBadge && rcsBadgesOn) {
                             PhoniqAccent
                         } else {
                             WaSubtleText
@@ -799,7 +880,7 @@ private fun ThreadChatHeader(
         Box {
             IconButton(onClick = { menuOpen = true }) {
                 Icon(
-                    Icons.Default.MoreVert,
+                    Icons.Filled.MoreVert,
                     contentDescription = stringResource(R.string.thread_cd_thread_menu),
                     tint = WaSubtleText,
                 )
@@ -819,6 +900,8 @@ private fun ThreadChatHeader(
                     thread.peerAddress?.trim().orEmpty().ifBlank {
                         thread.dialablePeer().orEmpty()
                     }
+                val peerForBlock =
+                    addr.ifBlank { thread.title.trim() }
                 if (addr.isNotEmpty()) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.thread_menu_copy_address)) },
@@ -828,6 +911,33 @@ private fun ThreadChatHeader(
                                 clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("PhonIQ", addr)))
                             }
                             onUserMessage(context.getString(R.string.thread_menu_address_copied))
+                        },
+                    )
+                }
+                if (peerForBlock.isNotEmpty()) {
+                    DropdownMenuItem(
+                        leadingIcon = {
+                            Icon(Icons.Default.Block, contentDescription = null)
+                        },
+                        text = { Text(stringResource(R.string.thread_menu_block_sender)) },
+                        onClick = {
+                            menuOpen = false
+                            messagesViewModel.blockSmsSender(peerForBlock) { result ->
+                                val msg =
+                                    when {
+                                        !result.addedLocalBlock ->
+                                            context.getString(R.string.block_sender_err_empty)
+                                        result.systemBlockSucceeded ->
+                                            context.getString(R.string.block_sender_ok_system)
+                                        result.attemptedSystemBlock ->
+                                            context.getString(R.string.block_sender_ok_local_try_settings)
+                                        else -> context.getString(R.string.block_sender_ok_local)
+                                    }
+                                onUserMessage(msg)
+                                if (result.addedLocalBlock) {
+                                    onThreadBlocked()
+                                }
+                            }
                         },
                     )
                 }
@@ -973,10 +1083,14 @@ private fun ThreadShortCodeNoReplyBar() {
 
 @Composable
 private fun ThreadComposerBar(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    sending: Boolean,
     onEmoji: () -> Unit,
     onAttach: () -> Unit,
     onSend: () -> Unit,
 ) {
+    val sendEnabled = value.text.isNotBlank() && !sending
     Surface(
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
@@ -999,10 +1113,13 @@ private fun ThreadComposerBar(
                 Modifier
                     .fillMaxWidth()
                     .padding(start = 8.dp, top = 6.dp, end = 8.dp, bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            IconButton(onClick = onEmoji) {
+            IconButton(
+                onClick = onEmoji,
+                modifier = Modifier.size(42.dp),
+            ) {
                 Icon(
                     Icons.Default.Mood,
                     contentDescription = stringResource(R.string.thread_cd_emoji),
@@ -1013,22 +1130,55 @@ private fun ThreadComposerBar(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .height(42.dp),
+                        .heightIn(min = 42.dp),
                 shape = RoundedCornerShape(22.dp),
                 color = WaComposerField,
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.CenterStart,
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        stringResource(R.string.thread_composer_hint),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = WaSubtleText,
-                    )
+                    val textSelectionColors =
+                        TextSelectionColors(
+                            handleColor = WaSendGreen,
+                            backgroundColor = WaSendGreen.copy(alpha = 0.4f),
+                        )
+                    CompositionLocalProvider(LocalTextSelectionColors provides textSelectionColors) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            BasicTextField(
+                                value = value,
+                                onValueChange = onValueChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                textStyle =
+                                    MaterialTheme.typography.bodyMedium.copy(color = WaBubbleText),
+                                cursorBrush = androidx.compose.ui.graphics.SolidColor(WaSendGreen),
+                                maxLines = 6,
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        capitalization = KeyboardCapitalization.Sentences,
+                                        imeAction = ImeAction.Default,
+                                    ),
+                                decorationBox = { inner ->
+                                    if (value.text.isEmpty()) {
+                                        Text(
+                                            stringResource(R.string.thread_composer_hint),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = WaSubtleText,
+                                            overflow = TextOverflow.Ellipsis,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    inner()
+                                },
+                            )
+                        }
+                    }
                 }
             }
-            IconButton(onClick = onAttach) {
+            IconButton(
+                onClick = onAttach,
+                modifier = Modifier.size(42.dp),
+            ) {
                 Icon(
                     Icons.Default.AttachFile,
                     contentDescription = stringResource(R.string.thread_cd_attach),
@@ -1037,11 +1187,14 @@ private fun ThreadComposerBar(
             }
             FilledIconButton(
                 onClick = onSend,
+                enabled = sendEnabled,
                 modifier = Modifier.size(42.dp),
                 colors =
                     IconButtonDefaults.filledIconButtonColors(
                         containerColor = WaSendGreen,
                         contentColor = Color.White,
+                        disabledContainerColor = WaSendGreen.copy(alpha = 0.45f),
+                        disabledContentColor = Color.White.copy(alpha = 0.7f),
                     ),
             ) {
                 Icon(
@@ -1056,9 +1209,11 @@ private fun ThreadComposerBar(
 @Composable
 private fun ConversationBubbleBlock(
     bubble: ConversationBubble,
+    bubbleKey: String,
     shortCodeFeedLayout: Boolean,
     onCopyOtp: (String) -> Unit,
-    onViewInMoney: () -> Unit,
+    onSmsLinkOpen: (String) -> Unit,
+    onSmsLinkPreview: (String) -> Unit,
 ) {
     when (bubble) {
         is ConversationBubble.DayDivider -> ThreadDayDivider(bubble.label)
@@ -1069,6 +1224,8 @@ private fun ConversationBubbleBlock(
                 outgoing = bubble.outgoing,
                 ticks = bubble.ticks,
                 shortCodeFeedLayout = shortCodeFeedLayout,
+                onSmsLinkOpen = onSmsLinkOpen,
+                onSmsLinkPreview = onSmsLinkPreview,
             )
         is ConversationBubble.ReactionRow -> ReactionChipRow(bubble.emoji, bubble.count)
         is ConversationBubble.RichLinkBubble ->
@@ -1085,10 +1242,10 @@ private fun ConversationBubbleBlock(
                 onCopy = { onCopyOtp(bubble.code) },
             )
         is ConversationBubble.TxnBubble ->
-            TxnBubbleCard(
+            TransactionTxnBubbleCard(
                 bubble = bubble,
+                bubbleKey = bubbleKey,
                 shortCodeFeedLayout = shortCodeFeedLayout,
-                onViewInMoney = onViewInMoney,
             )
     }
 }
@@ -1123,6 +1280,8 @@ private fun TextBubbleRow(
     outgoing: Boolean,
     ticks: MessageTickVisual,
     shortCodeFeedLayout: Boolean = false,
+    onSmsLinkOpen: (String) -> Unit,
+    onSmsLinkPreview: (String) -> Unit,
 ) {
     if (shortCodeFeedLayout) {
         val cardShape = RoundedCornerShape(12.dp)
@@ -1133,7 +1292,14 @@ private fun TextBubbleRow(
             border = BorderStroke(1.dp, WaHeaderBorder.copy(alpha = 0.35f)),
         ) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(body, style = MaterialTheme.typography.bodyMedium, color = WaBubbleText, lineHeight = 22.sp)
+                SmsLinkifiedText(
+                    text = body,
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+                    color = WaBubbleText,
+                    linkColor = PhoniqAccent,
+                    onLinkOpen = onSmsLinkOpen,
+                    onLinkLongPress = onSmsLinkPreview,
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
@@ -1177,7 +1343,14 @@ private fun TextBubbleRow(
             modifier = Modifier.widthIn(max = 320.dp),
         ) {
             Column(Modifier.padding(start = 10.dp, top = 6.dp, end = 10.dp, bottom = 4.dp)) {
-                Text(body, style = MaterialTheme.typography.bodyMedium, color = WaBubbleText, lineHeight = 20.sp)
+                SmsLinkifiedText(
+                    text = body,
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
+                    color = WaBubbleText,
+                    linkColor = PhoniqAccent,
+                    onLinkOpen = onSmsLinkOpen,
+                    onLinkLongPress = onSmsLinkPreview,
+                )
                 Row(
                     modifier = Modifier.align(Alignment.End),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -1433,17 +1606,17 @@ private fun TypingDot(delayMs: Int) {
     )
     val density = LocalDensity.current
     val travel = with(density) { 5.dp.toPx() }
-    Box(
-        modifier =
-            Modifier
+                    Box(
+                        modifier =
+                            Modifier
                 .size(6.dp)
                 .graphicsLayer {
                     translationY = -fraction * travel
                     alpha = 0.4f + fraction * 0.6f
                 }
-                .clip(CircleShape)
+                                .clip(CircleShape)
                 .background(WaSubtleText),
-    )
+                    )
 }
 
 @Composable
@@ -1501,12 +1674,12 @@ private fun OtpBubbleCard(
                         onCopied = onCopy,
                     )
                 } else {
-                    Text(
-                        bubble.code,
-                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 28.sp, letterSpacing = 3.sp),
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        fontWeight = FontWeight.Bold,
-                    )
+                Text(
+                    bubble.code,
+                    style = MaterialTheme.typography.headlineMedium.copy(fontSize = 28.sp, letterSpacing = 3.sp),
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    fontWeight = FontWeight.Bold,
+                )
                     TextButton(
                         onClick = {
                             scope.launch {
@@ -1517,7 +1690,7 @@ private fun OtpBubbleCard(
                             }
                         },
                     ) {
-                        Text(stringResource(R.string.thread_copy_otp))
+                    Text(stringResource(R.string.thread_copy_otp))
                     }
                 }
                 Text(
@@ -1525,70 +1698,6 @@ private fun OtpBubbleCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(
-                    bubble.time,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.align(Alignment.End),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TxnBubbleCard(
-    bubble: ConversationBubble.TxnBubble,
-    shortCodeFeedLayout: Boolean,
-    onViewInMoney: () -> Unit,
-) {
-    val surfaceModifier =
-        if (shortCodeFeedLayout) {
-            Modifier.fillMaxWidth()
-        } else {
-            Modifier.widthIn(max = 320.dp)
-        }
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-        Surface(
-            shape = RoundedCornerShape(if (shortCodeFeedLayout) 12.dp else 18.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-            border =
-                if (shortCodeFeedLayout) {
-                    BorderStroke(1.dp, WaHeaderBorder.copy(alpha = 0.35f))
-                } else {
-                    null
-                },
-            modifier = surfaceModifier,
-        ) {
-            Column(Modifier.padding(14.dp)) {
-                Text(
-                    bubble.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    bubble.amountLine,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-                Text(
-                    bubble.body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                if (bubble.showViewInMoney) {
-                    TextButton(
-                        onClick = onViewInMoney,
-                        colors =
-                            ButtonDefaults.textButtonColors(
-                                contentColor = PhoniqAccent,
-                            ),
-                    ) {
-                        Text(stringResource(R.string.thread_view_in_money))
-                    }
-                }
                 Text(
                     bubble.time,
                     style = MaterialTheme.typography.labelSmall,

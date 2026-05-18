@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import com.phoniq.app.util.normalizePhoneKey
+import com.phoniq.app.util.smsSpamPeerKey
 import java.util.Locale
 
 private const val TRUST_PREFS = "phoniq_user_trust"
@@ -61,10 +62,10 @@ class CallLogRepository(
         _userTrustedKeys.value = next
     }
 
-    /** Normalized PSTN keys for numbers marked spam (for recent-call UI). */
+    /** Keys for numbers/sender IDs marked spam (SMS peer + call UI). */
     val spamNumberKeys: Flow<Set<String>> =
         spamNumberDao.observeAll().map { rows ->
-            rows.mapNotNull { normalizePhoneKey(it.number).takeIf(String::isNotEmpty) }.toSet()
+            rows.map { smsSpamPeerKey(it.number) }.filter { it.isNotEmpty() }.toSet()
         }
 
     fun callsByType(type: String): Flow<List<CallLogEntity>> = callLogDao.observeByType(type)
@@ -171,17 +172,59 @@ class CallLogRepository(
     }
 
     suspend fun isSpam(number: String): Boolean =
-        spamNumberDao.findByNumber(number) != null
+        spamNumberDao.findByNumber(smsSpamPeerKey(number)) != null
 
     suspend fun markSpam(number: String) {
-        spamNumberDao.insert(SpamNumberEntity(number = number, source = "USER"))
+        val key = smsSpamPeerKey(number)
+        if (key.isEmpty()) return
+        spamNumberDao.insert(SpamNumberEntity(number = key, source = "USER"))
     }
 
     suspend fun unmarkSpam(number: String) {
-        spamNumberDao.deleteByNumber(number)
+        spamNumberDao.deleteByNumber(smsSpamPeerKey(number))
     }
 
     suspend fun clearAll() = callLogDao.deleteAll()
+
+    /**
+     * Delete all rows in the local Room cache + the system CallLog provider that share the
+     * normalized phone key of [rawNumber]. Mirrors Google Dialer's "Delete from call history"
+     * which removes every entry for the contact.
+     *
+     * @return number of system CallLog rows deleted (Room rows are deleted as a side effect of
+     *     the next observation).
+     */
+    suspend fun deleteCallsForNumber(rawNumber: String): Int = withContext(Dispatchers.IO) {
+        val key = normalizePhoneKey(rawNumber)
+        if (key.isEmpty()) return@withContext 0
+
+        val snapshot = callLogDao.recentSnapshot()
+        snapshot
+            .filter { normalizePhoneKey(it.number) == key }
+            .forEach { runCatching { callLogDao.delete(it) } }
+
+        val resolver: ContentResolver = context.contentResolver
+        val deletedSystem =
+            try {
+                resolver.delete(
+                    CallLog.Calls.CONTENT_URI,
+                    "${CallLog.Calls.NUMBER} = ?",
+                    arrayOf(rawNumber),
+                )
+            } catch (_: SecurityException) {
+                0
+            } catch (_: IllegalArgumentException) {
+                0
+            }
+        deletedSystem
+    }
+
+    /** Batch delete: each distinct number uses the same path as [deleteCallsForNumber]. */
+    suspend fun deleteCallsForNumbers(rawNumbers: Collection<String>) = withContext(Dispatchers.IO) {
+        rawNumbers.map { it.trim() }.filter { it.isNotEmpty() }.distinct().forEach { n ->
+            deleteCallsForNumber(n)
+        }
+    }
 
     /** Attach a user note to the most recent call row matching [number] after phone normalization. */
     suspend fun saveNoteForLatestCall(number: String, note: String) = withContext(Dispatchers.IO) {

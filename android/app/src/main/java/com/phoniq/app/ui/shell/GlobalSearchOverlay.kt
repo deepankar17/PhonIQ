@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -46,6 +45,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.phoniq.app.R
 import com.phoniq.app.ui.components.AvatarInitialsText
 import com.phoniq.app.ui.components.MockupSectionLabel
+import com.phoniq.app.ui.components.contactAvatarClip
+import com.phoniq.app.ui.theme.LocalRcsBadgesEnabled
 import com.phoniq.app.ui.theme.PhoniqAccent
 import com.phoniq.app.ui.theme.PhoniqBackground
 import com.phoniq.app.ui.theme.PhoniqBorderSoft
@@ -115,8 +116,8 @@ fun GlobalSearchOverlay(
         Surface(modifier = Modifier.fillMaxSize(), color = PhoniqBackground) {
             Column(Modifier.fillMaxSize()) {
                 Row(
-                    modifier =
-                        Modifier
+                modifier =
+                    Modifier
                             .fillMaxWidth()
                             .drawBehind {
                                 val stroke = 1.dp.toPx()
@@ -253,7 +254,7 @@ private fun SearchCallRow(
             modifier =
                 Modifier
                     .size(56.dp)
-                    .clip(CircleShape)
+                    .contactAvatarClip(56.dp)
                     .background(Brush.linearGradient(listOf(g0, g1))),
             contentAlignment = Alignment.Center,
         ) {
@@ -280,6 +281,7 @@ private fun SearchMessageRow(
     hit: SearchHit,
     onClick: () -> Unit,
 ) {
+    val rcsBadgesOn = LocalRcsBadgesEnabled.current
     Row(
         modifier =
             Modifier
@@ -295,7 +297,7 @@ private fun SearchMessageRow(
             modifier =
                 Modifier
                     .size(56.dp)
-                    .clip(CircleShape)
+                    .contactAvatarClip(56.dp)
                     .background(Brush.linearGradient(listOf(g0, g1))),
             contentAlignment = Alignment.Center,
         ) {
@@ -313,7 +315,7 @@ private fun SearchMessageRow(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(hit.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = PhoniqOnBackground)
-                    if (hit.showRcsPill) {
+                    if (hit.showRcsPill && rcsBadgesOn) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
                             color = PhoniqSecondary.copy(alpha = 0.2f),

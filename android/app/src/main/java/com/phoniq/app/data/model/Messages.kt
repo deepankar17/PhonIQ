@@ -9,6 +9,8 @@ enum class MessageThreadCategory {
     Bill,
     Delivery,
     Travel,
+    /** Marketing / offers SMS (parser PROMO), distinct from [Spam] and personal inbox. */
+    Offers,
     Spam,
     Archived,
 }
@@ -44,6 +46,18 @@ data class MessageThread(
     val lastTimestamp: Long = 0L,
     val isPinned: Boolean = false,
     val isArchived: Boolean = false,
+    /** When the latest SMS in the thread is a bank/UPI transaction, inbox shows Money-style preview. */
+    val latestTxnPreview: MessageTxnPreview? = null,
+)
+
+/** Parsed transaction fields for inbox list preview (from [SmsParser] on latest message). */
+data class MessageTxnPreview(
+    val title: String,
+    val subtitle: String,
+    val amountLabel: String,
+    val isCredit: Boolean,
+    val emoji: String,
+    val categoryTag: String,
 )
 
 fun MessageThread.matches(category: MessageThreadCategory): Boolean =
@@ -57,6 +71,7 @@ fun MessageThread.matches(category: MessageThreadCategory): Boolean =
         MessageThreadCategory.Bill -> !isArchived && MessageThreadCategory.Bill in categories
         MessageThreadCategory.Delivery -> !isArchived && MessageThreadCategory.Delivery in categories
         MessageThreadCategory.Travel -> !isArchived && MessageThreadCategory.Travel in categories
+        MessageThreadCategory.Offers -> !isArchived && MessageThreadCategory.Offers in categories
         MessageThreadCategory.Spam -> !isArchived && MessageThreadCategory.Spam in categories
     }
 

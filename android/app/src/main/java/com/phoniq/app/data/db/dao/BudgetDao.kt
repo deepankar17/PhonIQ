@@ -16,6 +16,9 @@ interface BudgetDao {
     @Query("SELECT * FROM budgets WHERE category = :category AND month_year = :monthYear LIMIT 1")
     suspend fun findByCategoryAndMonth(category: String, monthYear: String): BudgetEntity?
 
+    @Query("SELECT COALESCE(SUM(monthly_limit), 0) FROM budgets WHERE month_year = :monthYear")
+    suspend fun sumBudgetLimitsForMonthSync(monthYear: String): Double
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(budget: BudgetEntity): Long
 

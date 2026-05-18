@@ -26,6 +26,11 @@ interface TransactionDao {
     @Query("SELECT SUM(amount) FROM transactions WHERE txn_type = 'DEBIT' AND date >= :fromEpoch AND date <= :toEpoch")
     fun totalSpentInPeriod(fromEpoch: Long, toEpoch: Long): Flow<Double?>
 
+    @Query(
+        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE txn_type = 'DEBIT' AND date >= :fromEpoch AND date <= :toEpoch",
+    )
+    suspend fun sumDebitsInPeriodSync(fromEpoch: Long, toEpoch: Long): Double
+
     /** Returns all transactions for a specific account, newest first. */
     @Query("SELECT * FROM transactions WHERE account_id = :accountId ORDER BY date DESC")
     fun observeForAccount(accountId: Long): Flow<List<TransactionEntity>>

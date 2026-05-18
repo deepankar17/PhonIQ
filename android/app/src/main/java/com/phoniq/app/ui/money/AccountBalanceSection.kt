@@ -42,26 +42,40 @@ data class AccountBalance(
     val last4: String,
     val accountType: String,
     val netBalance: Double,
+    /** Last parsed movement on this account (passbook line). */
+    val lastMovementLabel: String? = null,
+    val lastMovementTimeLabel: String? = null,
 )
 
 /**
- * Horizontal scroll strip of account balance cards derived from parsed SMS transactions.
- * Shows net balance (credits - debits) per account.
+ * Horizontal scroll of account tiles: balance + last movement from SMS-derived txns (passbook-style).
  */
 @Composable
 fun AccountBalanceSection(
     accounts: List<AccountBalance>,
+    sectionTitle: String? = null,
     modifier: Modifier = Modifier,
 ) {
     if (accounts.isEmpty()) return
 
-    LazyRow(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        items(accounts, key = { it.accountId }) { acct ->
-            AccountBalanceCard(acct)
+    Column(modifier = modifier) {
+        sectionTitle?.let { t ->
+            Text(
+                text = t,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier =
+                    Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 6.dp),
+            )
+        }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(accounts, key = { it.accountId }) { acct ->
+                AccountBalanceCard(acct)
+            }
         }
     }
 }
@@ -119,8 +133,29 @@ private fun AccountBalanceCard(acct: AccountBalance) {
                 fontWeight = FontWeight.Bold,
                 color = balanceColor,
             )
+            val last = acct.lastMovementLabel
+            val lastTime = acct.lastMovementTimeLabel
+            if (last != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    last,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                )
+                if (lastTime != null) {
+                    Text(
+                        lastTime,
+                        fontSize = 9.sp,
+                        color = PhoniqTextSecondaryMock,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
             Text(
-                "Net balance · SMS derived",
+                "Net · SMS derived",
                 fontSize = 9.sp,
                 color = PhoniqTextSecondaryMock,
                 modifier = Modifier.padding(top = 2.dp),

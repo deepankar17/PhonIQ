@@ -8,15 +8,31 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class CallState { RINGING, DIALING, ACTIVE, HOLDING, DISCONNECTED }
 
+/** Audio route abstraction over [android.telecom.CallAudioState] routes. */
+enum class CallAudioRoute { EARPIECE, SPEAKER, BLUETOOTH, WIRED_HEADSET }
+
 /** [PhonIQInCallService] registers to process start/stop immediately when the user taps Record. */
 fun interface CallRecordingCommandSink {
     fun flushRecordingCommands()
+}
+
+/**
+ * Bridge for [PhonIQInCallService] to receive in-call control requests from the Compose UI
+ * (mute toggle, audio-route switch, hold). Decoupled so [CallStateRepository] stays a
+ * process-singleton with no Telecom dependency on previews/tests.
+ */
+interface CallControlsSink {
+    fun applyMuted(muted: Boolean)
+    fun applyAudioRoute(route: CallAudioRoute)
+    fun applyHold(hold: Boolean)
 }
 
 data class ActiveCallInfo(
     val callerNumber: String,
     val callerName: String,
     val state: CallState,
+    /** Android [ContactsContract.Contacts._ID] when resolved via PhoneLookup (0 if unknown). */
+    val deviceContactId: Long = 0L,
     /** The live Telecom Call handle — null in tests / preview. */
     val call: Call? = null,
 )
@@ -44,6 +60,53 @@ object CallStateRepository {
     private val pendingStopRecording = AtomicBoolean(false)
     private val pendingStartRecording = AtomicBoolean(false)
     private var recordingCommandSink: CallRecordingCommandSink? = null
+
+    /** Real Telecom-backed sink registered by [PhonIQInCallService]. */
+    private var controlsSink: CallControlsSink? = null
+
+    private val _isMuted = MutableStateFlow(false)
+    val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
+
+    private val _audioRoute = MutableStateFlow(CallAudioRoute.EARPIECE)
+    val audioRoute: StateFlow<CallAudioRoute> = _audioRoute.asStateFlow()
+
+    /** Bluetooth / wired-headset present so UI can dim/enable the speaker affordance. */
+    private val _hasBluetoothRoute = MutableStateFlow(false)
+    val hasBluetoothRoute: StateFlow<Boolean> = _hasBluetoothRoute.asStateFlow()
+
+    fun registerControlsSink(sink: CallControlsSink?) {
+        controlsSink = sink
+        if (sink == null) {
+            _isMuted.value = false
+            _audioRoute.value = CallAudioRoute.EARPIECE
+            _hasBluetoothRoute.value = false
+        }
+    }
+
+    /** Called from the InCallService callback. */
+    fun reportMutedState(muted: Boolean) {
+        _isMuted.value = muted
+    }
+
+    fun reportAudioRoute(route: CallAudioRoute, hasBluetooth: Boolean) {
+        _audioRoute.value = route
+        _hasBluetoothRoute.value = hasBluetooth
+    }
+
+    fun requestToggleMute() {
+        controlsSink?.applyMuted(!_isMuted.value)
+    }
+
+    fun requestToggleSpeaker() {
+        val next =
+            if (_audioRoute.value == CallAudioRoute.SPEAKER) CallAudioRoute.EARPIECE
+            else CallAudioRoute.SPEAKER
+        controlsSink?.applyAudioRoute(next)
+    }
+
+    fun requestHold(hold: Boolean) {
+        controlsSink?.applyHold(hold)
+    }
 
     fun registerRecordingCommandSink(sink: CallRecordingCommandSink?) {
         recordingCommandSink = sink

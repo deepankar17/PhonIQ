@@ -1,6 +1,8 @@
 package com.phoniq.app.util
 
 import android.content.ContentResolver
+import android.content.ContentUris
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
@@ -40,3 +42,31 @@ fun contactIdFromPickUri(resolver: ContentResolver, uri: Uri): Long? {
     }
     return null
 }
+
+/**
+ * Opens the system editor for an existing contact, or the insert flow when [deviceContactId] is unknown.
+ */
+fun Context.startContactEditor(
+    deviceContactId: Long,
+    displayName: String?,
+    phoneNumber: String?,
+): Boolean =
+    try {
+        if (deviceContactId > 0L) {
+            val uri =
+                ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, deviceContactId)
+            startActivity(
+                Intent(Intent.ACTION_EDIT)
+                    .setData(uri)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        } else {
+            startActivity(
+                buildInsertContactIntent(displayName, phoneNumber)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+        true
+    } catch (_: Exception) {
+        false
+    }

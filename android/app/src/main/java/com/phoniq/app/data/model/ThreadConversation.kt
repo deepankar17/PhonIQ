@@ -51,10 +51,30 @@ sealed interface ConversationBubble {
     ) : ConversationBubble
 
     data class TxnBubble(
-        val label: String,
-        val amountLine: String,
-        val body: String,
+        val maskedAccount: String?,
+        val narrative: String?,
+        /** Localized "Credited" / "Debited" label for the intelligent card. */
+        val typeLabel: String,
+        val amountLabel: String,
+        val isCredit: Boolean,
+        val availableBalanceLabel: String?,
+        val emoji: String,
+        val categoryTag: String,
+        val fullBody: String,
         val time: String,
-        val showViewInMoney: Boolean,
     ) : ConversationBubble
 }
+
+/** Parsed transaction fields for thread txn bubbles (from [SmsParser] + body). */
+data class TxnBubbleStructured(
+    val maskedAccount: String?,
+    val narrative: String?,
+    /** "CREDIT" | "DEBIT" — map to strings in UI. */
+    val typeLabel: String,
+    val amountLabel: String,
+    val isCredit: Boolean,
+    val availableBalanceLabel: String?,
+    val emoji: String,
+    val categoryTag: String,
+    val fullBody: String,
+)

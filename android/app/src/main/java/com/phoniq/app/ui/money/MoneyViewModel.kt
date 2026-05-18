@@ -1,6 +1,7 @@
 package com.phoniq.app.ui.money
 
 import android.content.Context
+import android.text.format.DateUtils
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -156,25 +157,45 @@ class MoneyViewModel(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
-     * Per-account net balance (credits - debits) derived from all parsed SMS transactions.
-     * Accounts are populated by SmsRepository when it parses bank messages.
+     * Per-account balance and last movement from all parsed SMS transactions (passbook-style).
      */
     val accountBalances: StateFlow<List<AccountBalance>> =
-        transactionRepository.allAccounts.flatMapLatest { accounts ->
-            if (accounts.isEmpty()) {
-                kotlinx.coroutines.flow.flowOf(emptyList())
-            } else {
-                combine(accounts.map { acct ->
-                    transactionRepository.netBalanceForAccount(acct.id).map { net ->
-                        AccountBalance(
-                            accountId = acct.id,
-                            bankName = acct.bankName,
-                            last4 = acct.last4,
-                            accountType = acct.accountType,
-                            netBalance = net,
-                        )
+        combine(
+            transactionRepository.allAccounts,
+            transactionRepository.allTransactions,
+        ) { accounts, txns ->
+            if (accounts.isEmpty()) return@combine emptyList()
+            val byAccount = txns.filter { it.accountId != null }.groupBy { it.accountId!! }
+            accounts.map { acct ->
+                val list = byAccount[acct.id].orEmpty()
+                val net =
+                    list.sumOf { txn ->
+                        if (txn.txnType == "CREDIT") txn.amount else -txn.amount
                     }
-                }) { it.toList() }
+                val last = list.maxByOrNull { it.date }
+                val lastLabel =
+                    last?.let { l ->
+                        val sign = if (l.txnType == "CREDIT") "+" else "−"
+                        val merchant = l.merchant?.takeIf { it.isNotBlank() } ?: l.category
+                        "$sign₹${"%,.0f".format(l.amount)} · $merchant"
+                    }
+                val lastTime =
+                    last?.date?.let { d ->
+                        DateUtils.getRelativeTimeSpanString(
+                            d,
+                            System.currentTimeMillis(),
+                            DateUtils.MINUTE_IN_MILLIS,
+                        ).toString()
+                    }
+                AccountBalance(
+                    accountId = acct.id,
+                    bankName = acct.bankName,
+                    last4 = acct.last4,
+                    accountType = acct.accountType,
+                    netBalance = net,
+                    lastMovementLabel = lastLabel,
+                    lastMovementTimeLabel = lastTime,
+                )
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -237,6 +258,25 @@ class MoneyViewModel(
                 SharingStarted.WhileSubscribed(5_000),
                 MoneyIntelligenceSummary.Empty,
             )
+
+    /** Recent parsed rows that look investment / SIP / broker related (read-only SMS IQ slice). */
+    val investmentHighlightTransactions: StateFlow<List<RecentTransaction>> =
+        transactionRepository.allTransactions
+            .map { txns ->
+                txns
+                    .asSequence()
+                    .filter { txn ->
+                        if (txn.category == "INVESTMENT") return@filter true
+                        val m = txn.merchant?.uppercase(Locale.US).orEmpty()
+                        INVESTMENT_MERCHANT_HINTS.any { hint -> m.contains(hint) }
+                    }
+                    .sortedByDescending { it.date }
+                    .take(12)
+                    .map { it.toRecentTransaction() }
+                    .toList()
+            }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Live budget status per category: spent amount vs user-set limit. */
     val budgetStatuses: StateFlow<List<BudgetStatus>> =
@@ -330,6 +370,21 @@ private val CATEGORY_META =
         "ENTERTAINMENT" to CategoryMeta("Entertainment", "🎬"),
         "INVESTMENT" to CategoryMeta("Investments", "📈"),
         "OTHER" to CategoryMeta("Others", "📦"),
+    )
+
+private val INVESTMENT_MERCHANT_HINTS =
+    arrayOf(
+        "SIP",
+        "MF",
+        "MUTUAL",
+        "NSDL",
+        "CDSL",
+        "ZERODHA",
+        "GROWW",
+        "HDFC MF",
+        "ICICI PRU",
+        "CAMS",
+        "KFIN",
     )
 
 private val dateFormatter = SimpleDateFormat("d MMM, h:mm a", Locale.getDefault())

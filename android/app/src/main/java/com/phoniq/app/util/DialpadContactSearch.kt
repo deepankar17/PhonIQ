@@ -51,6 +51,46 @@ private fun contactAvatarArgbPair(colorHex: String): Pair<Long, Long> {
     return argb to endArgb
 }
 
+/**
+ * Inclusive character index range in [subtitle] to highlight when typed [queryDigits] match a
+ * substring of [normalizePhoneKey](subtitle). Returns null when digits should not be highlighted
+ * (no match, or T9-only name match). Used for the T9 match list number line.
+ */
+fun dialpadPhoneHighlightRangeInSubtitle(subtitle: String, queryDigits: String): IntRange? {
+    if (queryDigits.isEmpty()) return null
+    val phoneKey = normalizePhoneKey(subtitle)
+    if (!phoneKey.contains(queryDigits)) return null
+
+    val digitPositions =
+        buildList {
+            subtitle.forEachIndexed { i, c ->
+                if (c.isDigit()) add(i)
+            }
+        }
+    if (digitPositions.isEmpty()) return null
+
+    val fullDigits =
+        buildString(digitPositions.size) {
+            for (i in digitPositions) append(subtitle[i])
+        }
+    val keyOffsetInFull =
+        if (fullDigits.length >= phoneKey.length) {
+            fullDigits.length - phoneKey.length
+        } else {
+            0
+        }
+    if (fullDigits.substring(keyOffsetInFull) != phoneKey) return null
+
+    val startInKey = phoneKey.lastIndexOf(queryDigits).takeIf { it >= 0 } ?: return null
+    val startInFull = keyOffsetInFull + startInKey
+    val endInFull = startInFull + queryDigits.length - 1
+    if (endInFull >= digitPositions.size) return null
+
+    val startChar = digitPositions[startInFull]
+    val endChar = digitPositions[endInFull]
+    return startChar..endChar
+}
+
 private fun matchesDialpadQuery(queryDigits: String, phoneKey: String, nameT9: String): Boolean {
     if (queryDigits.isEmpty()) return false
     if (phoneKey.contains(queryDigits)) return true

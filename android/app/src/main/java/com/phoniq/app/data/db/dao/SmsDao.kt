@@ -86,6 +86,9 @@ abstract class SmsDao {
     @Query("UPDATE sms_messages SET is_read = 1 WHERE thread_id = :threadId")
     abstract suspend fun markThreadRead(threadId: String)
 
+    @Query("UPDATE sms_messages SET is_read = 1 WHERE thread_id IN (:threadIds)")
+    abstract suspend fun markThreadsRead(threadIds: List<String>)
+
     @Query("UPDATE sms_messages SET is_read = 1")
     abstract suspend fun markAllRead()
 
@@ -103,4 +106,10 @@ abstract class SmsDao {
 
     @Query("UPDATE sms_messages SET is_archived = :archived WHERE thread_id = :threadId")
     abstract suspend fun setThreadArchived(threadId: String, archived: Boolean)
+
+    @Query("UPDATE sms_messages SET is_archived = :archived WHERE thread_id IN (:threadIds)")
+    abstract suspend fun setThreadsArchived(threadIds: List<String>, archived: Boolean)
+
+    @Query("DELETE FROM sms_messages WHERE thread_id IN (:threadIds)")
+    abstract suspend fun deleteThreads(threadIds: List<String>)
 }

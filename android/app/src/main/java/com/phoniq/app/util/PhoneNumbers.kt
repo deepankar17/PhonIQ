@@ -3,6 +3,7 @@ package com.phoniq.app.util
 import com.phoniq.app.data.db.entity.CallLogEntity
 import com.phoniq.app.data.db.entity.ContactEntity
 import com.phoniq.app.data.model.MessageThread
+import java.util.Locale
 
 /**
  * Canonical comparison key for PSTN numbers on the device (call log vs contact vs search).
@@ -18,6 +19,23 @@ fun normalizePhoneKey(raw: String?): String {
     return when {
         digits.length >= 10 -> digits.takeLast(10)
         else -> digits
+    }
+}
+
+/**
+ * Canonical key for [spam_numbers] rows and for hiding SMS threads from locally blocked senders.
+ * Aligns long PSTN forms via [normalizePhoneKey]; alphanumeric headers (e.g. VM-HDFCBK) collapse to uppercase alnum.
+ */
+fun smsSpamPeerKey(raw: String?): String {
+    if (raw.isNullOrBlank()) return ""
+    val t = raw.trim()
+    val digitKey = normalizePhoneKey(t)
+    if (digitKey.length >= 10) return digitKey
+    if (digitKey.isNotEmpty() && t.none { it.isLetter() }) return digitKey
+    return buildString(t.length) {
+        for (c in t.uppercase(Locale.US)) {
+            if (c.isLetterOrDigit()) append(c)
+        }
     }
 }
 
@@ -135,6 +153,19 @@ fun List<ContactEntity>.primaryNameByNormalizedPhone(): Map<String, String> {
         if (existing == null || c.name.length > existing.length) {
             acc[k] = c.name
         }
+    }
+    return acc
+}
+
+/** Device phone row label per [normalizePhoneKey] (Mobile, Work, …) from [ContactEntity.tag] after contact sync. */
+fun List<ContactEntity>.primaryPhoneLabelByNormalizedPhone(): Map<String, String> {
+    val acc = mutableMapOf<String, String>()
+    for (c in this) {
+        val k = normalizePhoneKey(c.number)
+        if (k.isEmpty()) continue
+        val label = c.tag?.trim().orEmpty()
+        if (label.isEmpty()) continue
+        acc.putIfAbsent(k, label)
     }
     return acc
 }

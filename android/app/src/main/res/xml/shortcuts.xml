@@ -3,7 +3,7 @@
     <shortcut
         android:shortcutId="phoniq_phone"
         android:enabled="true"
-        android:icon="@drawable/ic_phoniq_launcher"
+        android:icon="@mipmap/ic_phoniq_launcher"
         android:shortcutShortLabel="@string/shortcut_phone_short"
         android:shortcutLongLabel="@string/shortcut_phone_long">
         <intent
@@ -15,7 +15,7 @@
     <shortcut
         android:shortcutId="phoniq_messages"
         android:enabled="true"
-        android:icon="@drawable/ic_phoniq_launcher"
+        android:icon="@mipmap/ic_phoniq_launcher"
         android:shortcutShortLabel="@string/shortcut_messages_short"
         android:shortcutLongLabel="@string/shortcut_messages_long">
         <intent

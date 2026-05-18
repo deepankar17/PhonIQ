@@ -6,10 +6,12 @@ import com.phoniq.app.data.db.dao.TransactionDao
 import com.phoniq.app.data.db.entity.AccountEntity
 import com.phoniq.app.data.db.entity.BudgetEntity
 import com.phoniq.app.data.db.entity.TransactionEntity
+import com.phoniq.app.data.model.TxnNotificationMoneyInsights
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 class TransactionRepository(
     private val transactionDao: TransactionDao,
     private val budgetDao: BudgetDao,
@@ -43,6 +45,40 @@ class TransactionRepository(
         val last = first.withDayOfMonth(first.lengthOfMonth())
         val end = last.atTime(23, 59, 59, 999_000_000).atZone(zone).toInstant().toEpochMilli()
         return start to end
+    }
+
+    /**
+     * Offline aggregates for transaction notification copy: current calendar month spend (debits),
+     * optional “safe to spend / day” when user has monthly budgets set.
+     * Adds [freshDebitAmount] once so the just-received debit is reflected before SMS sync completes.
+     */
+    suspend fun loadTxnNotificationInsights(freshDebitAmount: Double): TxnNotificationMoneyInsights {
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        val monthKey = monthYearKey(today.year, today.monthValue)
+        val (start, end) = monthEpochRangeFor(today.year, today.monthValue)
+        val spentBase = transactionDao.sumDebitsInPeriodSync(start, end)
+        val spent = spentBase + freshDebitAmount.coerceAtLeast(0.0)
+        val budgetTotalRaw = budgetDao.sumBudgetLimitsForMonthSync(monthKey)
+        val budgetTotal = budgetTotalRaw.takeIf { it > 0.0 }
+        val lastDay = today.withDayOfMonth(today.lengthOfMonth())
+        val daysLeftInclusive = (lastDay.toEpochDay() - today.toEpochDay() + 1).coerceAtLeast(1)
+        val remaining = ((budgetTotal ?: 0.0) - spent).coerceAtLeast(0.0)
+        val safePerDay =
+            if (budgetTotal != null) {
+                remaining / daysLeftInclusive.toDouble()
+            } else {
+                null
+            }
+        val monthDisplay =
+            today.format(DateTimeFormatter.ofPattern("MMMM", Locale.getDefault()))
+        return TxnNotificationMoneyInsights(
+            monthSpendTotal = spent,
+            monthDisplayName = monthDisplay,
+            monthYear = today.year,
+            budgetTotal = budgetTotal,
+            safeToSpendPerDay = safePerDay,
+        )
     }
 
     suspend fun addTransaction(txn: TransactionEntity) = transactionDao.insert(txn)

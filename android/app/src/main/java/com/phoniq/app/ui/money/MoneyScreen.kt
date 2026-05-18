@@ -34,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +56,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.phoniq.app.MoneyNotifMode
+import com.phoniq.app.PhonIQLaunchRouter
 import com.phoniq.app.R
 import com.phoniq.app.data.model.BudgetStatus
 import com.phoniq.app.data.model.CategorySpend
@@ -66,6 +71,7 @@ import com.phoniq.app.ui.money.MonthlySpend
 import com.phoniq.app.ui.components.MockupSectionLabel
 import com.phoniq.app.ui.shell.ShellMenuAction
 import com.phoniq.app.ui.theme.PhoniqAccent
+import com.phoniq.app.ui.theme.LocalBlurMoneyAmounts
 import com.phoniq.app.ui.theme.PhoniqBorder
 import com.phoniq.app.ui.theme.PhoniqBorderSoft
 import com.phoniq.app.ui.theme.PhoniqBudgetBarTrack
@@ -80,6 +86,7 @@ import com.phoniq.app.ui.theme.PhoniqSummaryGradientB
 import com.phoniq.app.ui.theme.PhoniqSurface
 import com.phoniq.app.ui.theme.PhoniqTextSecondaryMock
 import com.phoniq.app.ui.theme.PhoniqTextSubtle
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -106,6 +113,16 @@ private fun monthsInYear(year: Int, bounds: MonthPickerBounds): List<Int> {
     return (start..end).toList()
 }
 
+/** Replaces ASCII digits with bullet when privacy blur is enabled (settings). */
+private fun privacyMaskMoneyDigits(text: String, blur: Boolean): String {
+    if (!blur) return text
+    return buildString {
+        for (c in text) {
+            append(if (c.isDigit()) '•' else c)
+        }
+    }
+}
+
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun MoneyScreen(
@@ -125,9 +142,11 @@ fun MoneyScreen(
     moneyReminderLines: List<MoneyReminderLine> = emptyList(),
     salaryFySummary: SalaryFySummary? = null,
     upcomingBillHints: List<UpcomingBillHint> = emptyList(),
+    investmentHighlights: List<RecentTransaction> = emptyList(),
 ) {
     val context = LocalContext.current
     val emptyHint = stringResource(R.string.money_empty_hint)
+    val blurPrivacy = LocalBlurMoneyAmounts.current
     val summary =
         realSummary
             ?: MoneySummary(
@@ -144,13 +163,44 @@ fun MoneyScreen(
 
     var showBudgetSheet by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-    ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val pendingMoneyNotif by PhonIQLaunchRouter.pendingMoneyNotif.collectAsStateWithLifecycle(lifecycleOwner)
+    var splitDialog by remember { mutableStateOf<Pair<Double, String>?>(null) }
+    val inrFormat = remember { NumberFormat.getCurrencyInstance(Locale.forLanguageTag("en-IN")) }
+
+    LaunchedEffect(pendingMoneyNotif) {
+        val n = pendingMoneyNotif ?: return@LaunchedEffect
+        val isPlainDefault =
+            n.mode == MoneyNotifMode.DEFAULT &&
+                n.splitAmount == null &&
+                n.splitMerchant.isNullOrBlank()
+        if (isPlainDefault) {
+            PhonIQLaunchRouter.consumeMoneyNotifExtras()
+            return@LaunchedEffect
+        }
+        PhonIQLaunchRouter.consumeMoneyNotifExtras()
+        when (n.mode) {
+            MoneyNotifMode.STATS -> onUserMessage(context.getString(R.string.money_notif_stats_message))
+            MoneyNotifMode.SPLIT -> {
+                val amt = n.splitAmount
+                if (amt != null && amt > 0) {
+                    splitDialog = amt to (n.splitMerchant.orEmpty())
+                } else {
+                    onUserMessage(context.getString(R.string.money_notif_split_generic))
+                }
+            }
+            MoneyNotifMode.DEFAULT -> Unit
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+        ) {
         item {
             MonthYearSelectorRow(
                 selected = selectedMonth,
@@ -158,10 +208,20 @@ fun MoneyScreen(
                 onChange = { ym -> onMonthYearChange(ym.year, ym.monthValue) },
             )
         }
-        item { SummaryHeroCard(summary = summary, onClick = { onUserMessage(context.getString(R.string.toast_money_summary_tap)) }) }
         if (accountBalances.isNotEmpty()) {
-            item { MockupSectionLabel(text = "Accounts", topPadding = 4.dp) }
-            item { AccountBalanceSection(accounts = accountBalances) }
+            item {
+                AccountBalanceSection(
+                    accounts = accountBalances,
+                    sectionTitle = stringResource(R.string.money_passbook_section),
+                )
+            }
+        }
+        item {
+            SummaryHeroCard(
+                summary = summary,
+                blurPrivacy = blurPrivacy,
+                onClick = { onUserMessage(context.getString(R.string.toast_money_summary_tap)) },
+            )
         }
         item { MockupSectionLabel(text = stringResource(R.string.money_tools_label), topPadding = 4.dp) }
         item { MoneyToolsStrip(onTool = { action ->
@@ -174,6 +234,27 @@ fun MoneyScreen(
                 onUserMessage = onUserMessage,
             )
         }
+        if (investmentHighlights.isNotEmpty()) {
+            item {
+                MockupSectionLabel(
+                    text = stringResource(R.string.money_invest_sms_section),
+                    topPadding = 8.dp,
+                )
+            }
+            item {
+                Column(
+                    modifier =
+                        Modifier
+                            .padding(horizontal = 14.dp, vertical = 4.dp)
+                            .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    investmentHighlights.forEach { txn ->
+                        TransactionRow(txn = txn, blurPrivacy = blurPrivacy)
+                    }
+                }
+            }
+        }
         if (moneyReminderLines.isNotEmpty()) {
             item { UpcomingMoneyRemindersSection(lines = moneyReminderLines) }
         }
@@ -184,7 +265,12 @@ fun MoneyScreen(
             item { UpcomingBillsCard(hints = upcomingBillHints) }
         }
         if (categories.isNotEmpty()) {
-            item { SpendingDonutRow(categories = categories, centerAmount = summary.spentLabel) }
+            item {
+                SpendingDonutRow(
+                    categories = categories,
+                    centerAmount = privacyMaskMoneyDigits(summary.spentLabel, blurPrivacy),
+                )
+            }
         } else {
             item {
                 Text(
@@ -224,7 +310,7 @@ fun MoneyScreen(
             }
         } else {
             items(transactions, key = { it.merchant + it.dateLine }) { txn ->
-                TransactionRow(txn)
+                TransactionRow(txn, blurPrivacy)
                 if (txn !== transactions.last()) {
                     HorizontalDivider(
                         color = PhoniqBorderSoft,
@@ -235,6 +321,28 @@ fun MoneyScreen(
             }
         }
         item { Spacer(Modifier.height(80.dp)) }
+        }
+
+        splitDialog?.let { (amt, merch) ->
+            AlertDialog(
+                onDismissRequest = { splitDialog = null },
+                title = { Text(stringResource(R.string.money_split_dialog_title)) },
+                text = {
+                    Text(
+                        stringResource(
+                            R.string.money_split_dialog_body,
+                            inrFormat.format(amt),
+                            merch.ifBlank { "—" },
+                        ),
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { splitDialog = null }) {
+                        Text(stringResource(R.string.action_got_it))
+                    }
+                },
+            )
+        }
     }
 
     if (showBudgetSheet) {
@@ -542,7 +650,7 @@ private fun MonthYearSelectorRow(
 }
 
 @Composable
-private fun SummaryHeroCard(summary: MoneySummary, onClick: () -> Unit) {
+private fun SummaryHeroCard(summary: MoneySummary, blurPrivacy: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(20.dp)
     Box(
         modifier =
@@ -581,16 +689,16 @@ private fun SummaryHeroCard(summary: MoneySummary, onClick: () -> Unit) {
                 modifier = Modifier.padding(bottom = 4.dp),
             )
             Text(
-                summary.spentLabel,
+                privacyMaskMoneyDigits(summary.spentLabel, blurPrivacy),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-0.5).sp,
                 color = Color.White,
             )
-            val budgetParts = summary.budgetCaption.split(" · ")
+            val budgetParts = privacyMaskMoneyDigits(summary.budgetCaption, blurPrivacy).split(" · ")
             val budgetDisplay =
                 buildAnnotatedString {
-                    append(budgetParts.getOrElse(0) { summary.budgetCaption })
+                    append(budgetParts.getOrElse(0) { privacyMaskMoneyDigits(summary.budgetCaption, blurPrivacy) })
                     if (budgetParts.size > 1) {
                         append(" · ")
                         withStyle(SpanStyle(color = ColorCredit)) { append(budgetParts[1]) }
@@ -613,7 +721,7 @@ private fun SummaryHeroCard(summary: MoneySummary, onClick: () -> Unit) {
                     color = PhoniqTextSecondaryMock,
                 )
                 Text(
-                    summary.savingsLabel,
+                    privacyMaskMoneyDigits(summary.savingsLabel, blurPrivacy),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = ColorCredit,
@@ -850,47 +958,15 @@ private fun RecentTransactionsHeader(onSeeAll: () -> Unit) {
 }
 
 @Composable
-private fun TransactionRow(txn: RecentTransaction) {
-    val iconShape = RoundedCornerShape(12.dp)
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(38.dp)
-                    .clip(iconShape)
-                    .background(txnBgColor(txn.categoryTag)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(txn.emoji, fontSize = 18.sp)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(
-                txn.merchant,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                txn.dateLine,
-                fontSize = 11.sp,
-                color = Color(0xFF666666),
-                modifier = Modifier.padding(top = 1.dp),
-            )
-        }
-        Text(
-            txn.amountLabel,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = if (txn.isCredit) ColorCredit else PhoniqDebit,
-        )
-    }
+private fun TransactionRow(txn: RecentTransaction, blurPrivacy: Boolean) {
+    TransactionSmsRowContent(
+        title = txn.merchant,
+        subtitle = txn.dateLine,
+        amountLabel = privacyMaskMoneyDigits(txn.amountLabel, blurPrivacy),
+        isCredit = txn.isCredit,
+        emoji = txn.emoji,
+        categoryTag = txn.categoryTag,
+    )
 }
 
 private fun categoryColor(row: CategorySpend): Color =
@@ -902,12 +978,3 @@ private fun categoryColor(row: CategorySpend): Color =
         else -> ColorOthers
     }
 
-private fun txnBgColor(tag: String): Color =
-    when (tag) {
-        "food" -> Color(0xFF6C63FF).copy(alpha = 0.15f)
-        "salary" -> Color(0xFF00D4AA).copy(alpha = 0.15f)
-        "shopping" -> Color(0xFFF5A623).copy(alpha = 0.15f)
-        "bills" -> Color(0xFFFF6B6B).copy(alpha = 0.15f)
-        "transport" -> Color(0xFF00D4AA).copy(alpha = 0.15f)
-        else -> Color(0xFF888888).copy(alpha = 0.15f)
-    }

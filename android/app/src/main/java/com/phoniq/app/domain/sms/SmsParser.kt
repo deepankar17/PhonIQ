@@ -30,8 +30,13 @@ class SmsParser {
         /** "DEBIT" | "CREDIT" */
         val type: String,
         val merchant: String?,
+        /** Last 4–6 digits of account/card when detected. */
         val account: String?,
         val category: String,
+        /** UPI/transfer/merchant line extracted from the SMS body. */
+        val narrative: String? = null,
+        /** Available balance when the bank SMS includes it. */
+        val availableBalance: Double? = null,
     )
 
     enum class SmsCategory {
@@ -49,14 +54,15 @@ class SmsParser {
         // Hard spam signals (high confidence)
         if (isSpam(lowerBody, lowerSender)) return ParseResult(SmsCategory.SPAM)
 
-        // Promo signals
-        if (isPromo(lowerBody, lowerSender)) return ParseResult(SmsCategory.PROMO)
-
-        // Transaction detection (bank / UPI / wallet senders)
+        // Bank / UPI traffic before promo so marketing blurbs on transactional senders
+        // still classify as TRANSACTION when amounts / merchant lines parse.
         if (isTransactionalSender(lowerSender) || hasTransactionKeywords(lowerBody)) {
             val txn = tryParseTransaction(body, lowerBody, sender)
             if (txn != null) return ParseResult(SmsCategory.TRANSACTION, transaction = txn)
         }
+
+        // Marketing / offers (tuned to reduce false positives vs personal chit-chat)
+        if (isPromo(lowerBody, lowerSender)) return ParseResult(SmsCategory.PROMO)
 
         // Bill / utility
         if (hasBillKeywords(lowerBody)) return ParseResult(SmsCategory.BILL)
@@ -172,6 +178,35 @@ class SmsParser {
         RegexOption.IGNORE_CASE,
     )
 
+    private val accountMaskFallback = Regex(
+        """[Xx*]{2,}(\d{4,6})""",
+    )
+
+    private val availableBalancePattern = Regex(
+        """(?:avl|available)\s*(?:bal|balance)?\s*(?:is|:)?\s*(?:INR|Rs\.?|₹|inr)?\s*([0-9,]+(?:\.[0-9]{1,2})?)""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private val narrativeAfterDatePattern = Regex(
+        """on\s+\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?\s*[-–]\s*(.+?)(?:\.\s*(?:Avl|Available|Ref|UPI)|\.\s*-|$)""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private val narrativeTransferPattern = Regex(
+        """[-–]\s*((?:Transferred|transfer(?:red)?|paid|sent|received|deposited)\s+(?:to|from|at)\s+.+?)(?:\.\s*(?:Avl|Available|Ref)|\.|$)""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private val narrativeInfoPattern = Regex(
+        """(?:Info|Narration|Remarks?)\s*[-:.]\s*(.+?)(?:\.\s*(?:Avl|Available|Ref)|\.|$)""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private val narrativeUpiPattern = Regex(
+        """(?:UPI|VPA)\s*(?:ref|id)?[:\s#-]*\w+.*?[-–]\s*(.+?)(?:\.\s*(?:Avl|Available)|\.|$)""",
+        RegexOption.IGNORE_CASE,
+    )
+
     private fun tryParseTransaction(body: String, lower: String, sender: String): TransactionResult? {
         val amountMatch = amountPattern.find(body) ?: amountFallbackPattern.find(body) ?: return null
         val amountStr = amountMatch.groupValues[1].replace(",", "")
@@ -188,9 +223,43 @@ class SmsParser {
             pat.find(body)?.groupValues?.get(1)?.trim()
                 ?.takeIf { it.length >= 3 && !it.all { c -> c.isDigit() } }
         }
-        val account = accountPattern.find(body)?.groupValues?.get(1)
-        val category = inferCategory(lower, merchant?.lowercase() ?: "")
-        return TransactionResult(amount, type, merchant, account, category)
+        val account =
+            accountPattern.find(body)?.groupValues?.get(1)
+                ?: accountMaskFallback.find(body)?.groupValues?.get(1)
+        val narrative = extractTxnNarrative(body, merchant)
+        val availableBalance =
+            availableBalancePattern.find(body)?.groupValues?.get(1)
+                ?.replace(",", "")
+                ?.toDoubleOrNull()
+        val category = inferCategory(lower, (narrative ?: merchant)?.lowercase() ?: "")
+        return TransactionResult(
+            amount = amount,
+            type = type,
+            merchant = merchant,
+            account = account,
+            category = category,
+            narrative = narrative,
+            availableBalance = availableBalance,
+        )
+    }
+
+    private fun extractTxnNarrative(body: String, merchant: String?): String? {
+        merchant?.trim()?.takeIf { it.length >= 3 }?.let { return it }
+        val patterns =
+            listOf(
+                narrativeAfterDatePattern,
+                narrativeTransferPattern,
+                narrativeInfoPattern,
+                narrativeUpiPattern,
+            )
+        for (pattern in patterns) {
+            val raw =
+                pattern.find(body)?.groupValues?.get(1)?.trim()
+                    ?.trimEnd('.', '-', ' ')
+                    ?.takeIf { it.length >= 3 && !it.all { c -> c.isDigit() } }
+            if (raw != null) return raw
+        }
+        return null
     }
 
     // -----------------------------------------------------------------------
@@ -322,10 +391,56 @@ class SmsParser {
         "happy hour", "flash sale",
     )
 
+    /** High-confidence commercial markers — one hit plus a weak promo keyword is enough. */
+    private val strongPromoMarkers = listOf(
+        "unsubscribe",
+        "coupon code",
+        "voucher",
+        "% off",
+        "flat off",
+        "shop now",
+        "scratch card",
+        "click here",
+        "limited period offer",
+        "sms stop",
+        "reply stop",
+        "opt out",
+        "win rs",
+        "won rs",
+        "cashback offer",
+    )
+
     private fun isPromo(lower: String, lowerSender: String): Boolean {
         if (promoSenderSuffixes.any { lowerSender.endsWith(it) }) return true
+        if (looksLikePersonalConversational(lower)) return false
         val promoHits = promoKeywords.count { lower.contains(it) }
-        return promoHits >= 2
+        val strong = strongPromoMarkers.any { lower.contains(it) }
+        if (strong && promoHits >= 1) return true
+        return promoHits >= 3
+    }
+
+    /** Very short colloquial messages rarely are DLT promos; cuts false "offer" hits in chats. */
+    private fun looksLikePersonalConversational(lower: String): Boolean {
+        if (lower.length > 120) return false
+        val conversational =
+            listOf(
+                "are you",
+                "can you",
+                "will you",
+                "see you",
+                "call me",
+                "text me",
+                "on my way",
+                "running late",
+                "thank you",
+                "thanks ",
+                "ok ", "okay",
+                "yes ",
+
+                "no ",
+            )
+        return conversational.count { lower.contains(it) } >= 1 &&
+            strongPromoMarkers.none { lower.contains(it) }
     }
 
     // -----------------------------------------------------------------------

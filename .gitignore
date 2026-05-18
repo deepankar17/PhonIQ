@@ -29,6 +29,9 @@ local.properties
 # Google Services (add if the project uses Firebase / Play Services config)
 google-services.json
 
+# Firebase Hosting local cache
+.firebase/
+
 # Android profiling
 *.hprof
 

@@ -80,6 +80,7 @@ fun CallLogEntity.toRecentCall(
         deviceContactId = deviceContactId,
         avatarStartArgb = startArgb,
         avatarEndArgb = endArgb,
+        timestampMs = timestamp,
     )
 }
 
@@ -89,8 +90,8 @@ internal fun SmsMessageEntity.messageThreadCategories(): Set<MessageThreadCatego
     when (category) {
         "OTP" -> setOf(MessageThreadCategory.Otp)
         "TRANSACTION" -> setOf(MessageThreadCategory.Transaction)
+        "PROMO" -> setOf(MessageThreadCategory.Offers)
         "SPAM" -> setOf(MessageThreadCategory.Spam)
-        "PROMO" -> setOf(MessageThreadCategory.Spam)
         "BILL" -> setOf(MessageThreadCategory.Bill)
         "DELIVERY" -> setOf(MessageThreadCategory.Delivery)
         "TRAVEL" -> setOf(MessageThreadCategory.Travel)
@@ -115,6 +116,7 @@ fun SmsMessageEntity.toMessageThread(): MessageThread {
         if (MessageThreadCategory.Otp in uiCategories) add("OTP")
         if (MessageThreadCategory.Transaction in uiCategories) add("TXN")
         if (MessageThreadCategory.Bill in uiCategories) add("BILL")
+        if (MessageThreadCategory.Offers in uiCategories) add("OFFERS")
         if (MessageThreadCategory.Spam in uiCategories) add("SPAM")
     }
 
@@ -151,23 +153,43 @@ fun List<SmsMessageEntity>.toMessageThreads(): List<MessageThread> {
             val isPinned = messages.any { it.isPinned }
             val isArchived = messages.any { it.isArchived }
             val categories = messages.flatMap { it.messageThreadCategories().toList() }.toSet()
-            val otpMsg = messages.filter { it.isOtp }.maxByOrNull { it.timestamp }
-            val otpResult = otpMsg?.let { threadSmsParser.parse(it.sender, it.body).otp }
-            val otpTtlSec = otpResult?.ttlSeconds?.coerceIn(60, 3600) ?: 600
-            val otpExpiresAt = otpMsg?.let { it.timestamp + otpTtlSec * 1000L }
-            val now = System.currentTimeMillis()
-            val otpStillValid =
-                otpResult != null && otpExpiresAt != null && now < otpExpiresAt
-            // Inbox badge: amount only when the *latest* message in the thread is transactional
-            // (parser sees a txn or category is TRANSACTION with a parsed amount on that same body).
-            val latestTxn = threadSmsParser.parse(latest.sender, latest.body).transaction
+            // List preview: show OTP code (not full SMS body) when the latest message is unread OTP.
+            val latestUnreadOtp =
+                if (latest.isOtp && !latest.isRead) {
+                    threadSmsParser.parse(latest.sender, latest.body).otp
+                } else {
+                    null
+                }
+            val otpTtlSec = latestUnreadOtp?.ttlSeconds?.coerceIn(60, 3600) ?: 600
+            val otpExpiresAt =
+                latestUnreadOtp?.let { latest.timestamp + otpTtlSec * 1000L }
+            val listSnippet =
+                latestUnreadOtp?.code?.takeIf { it.isNotBlank() }
+                    ?: latest.body.take(100)
+            // Money-style inbox preview when the latest message is transactional.
+            val latestParse = threadSmsParser.parse(latest.sender, latest.body)
+            val latestTxn = latestParse.transaction
+            val latestIsTxn =
+                latest.isTransaction ||
+                    latest.category == "TRANSACTION" ||
+                    latestParse.category == SmsParser.SmsCategory.TRANSACTION
+            val latestTxnPreview =
+                if (latestIsTxn && latestTxn != null && !latest.isInvestmentTxnSms(threadSmsParser)) {
+                    latestTxn.toMessageTxnPreview(latest.timestamp)
+                } else {
+                    null
+                }
             val subtitleBadge =
-                latestTxn?.let { txn ->
-                    val sign = if (txn.type == "DEBIT") "−" else "+"
-                    sign + String.format(Locale.US, "₹%,.0f", txn.amount)
+                if (latestTxnPreview != null) {
+                    null
+                } else {
+                    latestTxn?.let { txn ->
+                        val sign = if (txn.type == "DEBIT") "−" else "+"
+                        sign + String.format(Locale.US, "₹%,.0f", txn.amount)
+                    }
                 }
             val pills = buildList {
-                if (messages.any { it.category == "PROMO" }) add("PROMO")
+                if (messages.any { it.category == "PROMO" }) add("OFFERS")
                 if (messages.any { it.category == "SPAM" }) add("SPAM")
                 if (MessageThreadCategory.Otp in categories) add("OTP")
                 if (MessageThreadCategory.Transaction in categories) add("TXN")
@@ -195,13 +217,15 @@ fun List<SmsMessageEntity>.toMessageThreads(): List<MessageThread> {
             }
             latest.toMessageThread()
                 .copy(
+                    snippet = listSnippet,
                     categories = categories,
                     rowPills = pills,
                     unread = messages.any { !it.isRead },
                     unreadCount = messages.count { !it.isRead },
-                    otpCode = if (otpStillValid) otpResult?.code else null,
-                    otpExpiresAtEpochMillis = if (otpStillValid) otpExpiresAt else null,
+                    otpCode = latestUnreadOtp?.code,
+                    otpExpiresAtEpochMillis = otpExpiresAt,
                     subtitleBadge = subtitleBadge,
+                    latestTxnPreview = latestTxnPreview,
                     isPinned = isPinned,
                     isArchived = isArchived,
                     lastTimestamp = latest.timestamp,
@@ -223,11 +247,14 @@ fun ContactEntity.toContactRow(): ContactRow {
         c.toLong() and 0xFFFFFFFFL
     }.getOrElse { 0xFF6C63FFL }
     val endArgb = 0xFF000000L or ((argb and 0x00FFFFFFL) xor 0x002A2A2AL)
+    val label = tag?.trim()?.takeIf { it.isNotEmpty() }
     return ContactRow(
         id = id.toString(),
         name = name,
         subtitle = number,
         detailNumber = number,
+        allPhoneNumbers = listOf(number),
+        phoneEntries = listOf(com.phoniq.app.data.model.ContactPhoneEntry(number = number, label = label)),
         avatarStartArgb = argb,
         avatarEndArgb = endArgb,
         deviceContactId = deviceContactId,
@@ -240,13 +267,15 @@ private fun deviceContactAggregationKey(entity: ContactEntity): String =
         else -> "i:${entity.id}"
     }
 
-private fun orderedDistinctRawPhones(rows: Iterable<ContactEntity>): List<String> {
-    val ordered = LinkedHashMap<String, String>()
+private fun orderedDistinctPhoneEntries(rows: Iterable<ContactEntity>): List<com.phoniq.app.data.model.ContactPhoneEntry> {
+    val ordered = LinkedHashMap<String, com.phoniq.app.data.model.ContactPhoneEntry>()
     for (e in rows) {
         val raw = e.number.trim()
         if (raw.isEmpty()) continue
         val key = normalizePhoneKey(raw).ifEmpty { "raw:$raw" }
-        if (key !in ordered) ordered[key] = raw
+        if (key in ordered) continue
+        val label = e.tag?.trim()?.takeIf { it.isNotEmpty() }
+        ordered[key] = com.phoniq.app.data.model.ContactPhoneEntry(number = raw, label = label)
     }
     return ordered.values.toList()
 }
@@ -255,7 +284,8 @@ private fun mergeContactEntitiesToContactRow(rows: List<ContactEntity>): Contact
     require(rows.isNotEmpty())
     val sortedById = rows.sortedBy { it.id }
     val primary = sortedById.first()
-    val numbers = orderedDistinctRawPhones(sortedById)
+    val entries = orderedDistinctPhoneEntries(sortedById)
+    val numbers = entries.map { it.number }
     val argb =
         runCatching {
             val c = android.graphics.Color.parseColor(primary.avatarColor)
@@ -274,6 +304,7 @@ private fun mergeContactEntitiesToContactRow(rows: List<ContactEntity>): Contact
         subtitle = subtitleMerged.ifEmpty { primary.number },
         detailNumber = numbers.firstOrNull() ?: primary.number,
         allPhoneNumbers = numbers,
+        phoneEntries = entries,
         avatarStartArgb = argb,
         avatarEndArgb = endArgb,
         deviceContactId = primary.deviceContactId,
@@ -331,4 +362,4 @@ fun CallLogEntity.toContactHistoryEntry(): ContactHistoryEntry {
         timeMeta = timeMeta,
         incoming = incoming,
     )
-}
+        }
